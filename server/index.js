@@ -1,4 +1,9 @@
 require("dotenv").config();
+
+console.log("ENV TEST:");
+console.log("WHATSAPP_TOKEN:", process.env.WHATSAPP_TOKEN);
+console.log("PHONE_NUMBER_ID:", process.env.PHONE_NUMBER_ID);
+
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
