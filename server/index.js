@@ -67,9 +67,13 @@ app.post("/webhook", async (req, res) => {
     const entry = req.body.entry?.[0];
     const changes = entry?.changes?.[0];
     const value = changes?.value;
-    const messages = value?.messages;
+   const messages = value?.messages;
 
-    if (messages) {
+  if (!messages) {
+      console.log("🔕 Evento ignorado (no es mensaje)");
+     return res.sendStatus(200);
+   }
+
       const message = messages[0];
       const from = message.from;
       const text = message.text?.body;
@@ -190,7 +194,7 @@ Cuando quieras, escribime 👍`);
 
         return await enviarMensaje(from, "Respondé 1 o 2");
       }
-    }
+    
 
     res.sendStatus(200);
   } catch (error) {
