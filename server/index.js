@@ -48,7 +48,6 @@ async function turnoDisponible(hora, barbero) {
   return data.length === 0;
 }
 
-// 🔥 NUEVO: OBTENER TURNOS
 async function obtenerTurnos(telefono) {
   const { data, error } = await supabase
     .from("turnos")
@@ -62,6 +61,21 @@ async function obtenerTurnos(telefono) {
   }
 
   return data;
+}
+
+// 🔥 NUEVO: ELIMINAR TURNO
+async function eliminarTurno(id) {
+  const { error } = await supabase
+    .from("turnos")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.log("❌ Error eliminando:", error);
+    return false;
+  }
+
+  return true;
 }
 
 // ==============================
@@ -129,11 +143,16 @@ app.post("/webhook", async (req, res) => {
         barbero: null,
         horario: null,
         ultimoMensajeId: null,
-        ultimoTimestamp: 0
+        ultimoTimestamp: 0,
+        turnos: null // 🔥 nuevo
       };
     }
 
     const usuario = usuarios[from];
+
+    // ==============================
+    // ANTI DUPLICADO
+    // ==============================
 
     if (usuario.ultimoMensajeId === message.id) {
       return res.sendStatus(200);
@@ -167,6 +186,10 @@ app.post("/webhook", async (req, res) => {
 3️⃣ Cancelar turno`);
     }
 
+    // ==============================
+    // MENU
+    // ==============================
+
     if (usuario.estado === "menu") {
       if (mensaje === "1") {
         usuario.estado = "servicio";
@@ -178,7 +201,7 @@ app.post("/webhook", async (req, res) => {
 3️⃣ Corte + barba`);
       }
 
-      // 🔥 VER TURNOS
+      // VER TURNOS
       if (mensaje === "2") {
         const turnos = await obtenerTurnos(from);
 
@@ -195,8 +218,56 @@ app.post("/webhook", async (req, res) => {
         return await enviarMensaje(from, texto);
       }
 
+      // 🔥 CANCELAR
+      if (mensaje === "3") {
+        const turnos = await obtenerTurnos(from);
+
+        if (!turnos || turnos.length === 0) {
+          return await enviarMensaje(from, "📭 No tenés turnos para cancelar.");
+        }
+
+        usuario.turnos = turnos;
+        usuario.estado = "cancelar";
+
+        let texto = "❌ Elegí el turno a cancelar:\n\n";
+
+        turnos.forEach((t, i) => {
+          texto += `${i + 1}️⃣ ${t.fecha} - ${t.hora}\n💈 ${t.barbero}\n\n`;
+        });
+
+        return await enviarMensaje(from, texto);
+      }
+
       return await enviarMensaje(from, "😅 Elegí una opción válida (1, 2 o 3)");
     }
+
+    // ==============================
+    // CANCELAR
+    // ==============================
+
+    if (usuario.estado === "cancelar") {
+      const index = parseInt(mensaje) - 1;
+
+      if (!usuario.turnos || !usuario.turnos[index]) {
+        return await enviarMensaje(from, "❌ Opción inválida");
+      }
+
+      const turno = usuario.turnos[index];
+
+      const ok = await eliminarTurno(turno.id);
+
+      usuario.estado = "inicio";
+
+      if (ok) {
+        return await enviarMensaje(from, "✅ Turno cancelado correctamente");
+      } else {
+        return await enviarMensaje(from, "❌ Error al cancelar el turno");
+      }
+    }
+
+    // ==============================
+    // AGENDAR
+    // ==============================
 
     if (usuario.estado === "servicio") {
       if (mensaje === "1") usuario.servicio = "Corte";
