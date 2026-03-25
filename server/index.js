@@ -49,9 +49,12 @@ async function guardarMensajeProcesado(id) {
 // ==============================
 
 async function guardarTurno(turno) {
-  const { error } = await supabase.from("turnos").insert([turno]);
+  const { error } = await supabase.from("turnos").insert([{
+  ...turno,
+  recordatorio_enviado: false
+}]);
   if (error) {
-    console.log("❌ Error guardando:", error);
+    console.log("❌ Error guardando:", JSON.stringify(error, null, 2));
     return false;
   }
   return true;
