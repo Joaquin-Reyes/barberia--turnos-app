@@ -14,6 +14,10 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = "mi_token_secreto";
+const BARBEROS = {
+  "Agus": "5491111111111",
+  "Lucas": "5492222222222"
+};
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
@@ -271,6 +275,15 @@ app.post("/admin/crear-turno", async (req, res) => {
     return res.status(500).json({ error: "Error guardando" });
   }
 
+  // 👇 NOTIFICAR AL BARBERO
+  await notificarBarbero({
+  nombre,
+  servicio,
+  barbero,
+  fecha,
+  hora
+});
+
   res.json({ ok: true });
 });
 
@@ -501,6 +514,17 @@ Confirmamos?
 
         usuario.estado = "inicio";
 
+         // 👇👇👇 ACÁ VA
+    if (ok) {
+      await notificarBarbero({
+        nombre: from,
+        servicio: usuario.servicio,
+        barbero: usuario.barbero,
+        fecha: hoy,
+        hora: usuario.horario
+      });
+    }
+
         if (ok) {
           return await enviarMensaje(from, `🔥 Turno confirmado
 
@@ -558,6 +582,25 @@ async function enviarMensaje(numero, mensaje) {
   } catch (error) {
     console.error("❌ Error enviando mensaje:", error.response?.data || error.message);
   }
+}
+
+// 👇👇👇 PEGAR ESTO JUSTO ABAJO
+async function notificarBarbero(turno) {
+  const numeroBarbero = BARBEROS[turno.barbero];
+
+  if (!numeroBarbero) {
+    console.log("⚠️ No hay número para el barbero:", turno.barbero);
+    return;
+  }
+
+  const mensaje = `📅 Nuevo turno asignado
+
+👤 ${turno.nombre}
+✂️ ${turno.servicio}
+⏰ ${turno.hora}
+📅 ${turno.fecha}`;
+
+  await enviarMensaje(numeroBarbero, mensaje);
 }
 
 // ==============================
