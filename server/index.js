@@ -203,6 +203,14 @@ const usuarios = {};
 app.use(cors());
 app.use(express.json());
 
+const session = require("express-session");
+
+app.use(session({
+  secret: "clave_super_secreta",
+  resave: false,
+  saveUninitialized: true,
+}));
+
 const ADMIN_PASSWORD = "1234";
 
 app.post("/admin/login", (req, res) => {
