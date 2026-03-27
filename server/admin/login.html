@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login Admin</title>
+</head>
+<body>
+  <h2>🔐 Login Admin</h2>
+
+  <input type="password" id="pass" placeholder="Contraseña" />
+  <button onclick="login()">Entrar</button>
+
+  <script>
+    async function login() {
+      const password = document.getElementById("pass").value;
+
+      const res = await fetch("/admin/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ password })
+      });
+
+      if (res.ok) {
+        window.location.href = "/admin";
+      } else {
+        alert("❌ Password incorrecta");
+      }
+    }
+  </script>
+</body>
+</html>

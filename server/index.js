@@ -203,6 +203,19 @@ const usuarios = {};
 app.use(cors());
 app.use(express.json());
 
+const ADMIN_PASSWORD = "1234";
+
+app.post("/admin/login", (req, res) => {
+  const { password } = req.body;
+
+  if (password === ADMIN_PASSWORD) {
+    req.session.auth = true;
+    return res.json({ ok: true });
+  }
+
+  res.status(401).json({ error: "Password incorrecta" });
+});
+
 app.use(session({
   secret: "clave_super_secreta",
   resave: false,
@@ -226,13 +239,23 @@ app.post("/logout", (req, res) => {
 });
 
 // 👇 PANEL ADMIN (NUEVO)
+// 🔐 PROTEGER PANEL BARBERO
 app.use("/admin/barbero.html", (req, res, next) => {
   if (req.session.barbero) return next();
-  res.sendFile(path.join(__dirname, "admin/login-barbero.html"));
+  return res.sendFile(path.join(__dirname, "admin/login-barbero.html"));
 });
 
-app.use("/admin", express.static(path.join(__dirname, "admin")));
+// 🔐 PROTEGER PANEL ADMIN (PERO EXCLUIR BARBERO)
+app.use("/admin", (req, res, next) => {
+  // 👇 IMPORTANTE: dejar pasar barbero
+  if (req.path === "/barbero.html") return next();
 
+  if (req.session.auth) return next();
+  return res.sendFile(path.join(__dirname, "admin/login.html"));
+});
+
+// 📁 SERVIR ARCHIVOS
+app.use("/admin", express.static(path.join(__dirname, "admin")));
 // ==============================
 // ADMIN ENDPOINTS (NUEVO)
 // ==============================
