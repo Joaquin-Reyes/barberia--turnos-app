@@ -76,71 +76,50 @@ async function guardarTurno(turno) {
   return true;
 }
 
-async function turnoDisponible(hora, barbero) {
-  const hoy = new Date().toISOString().split("T")[0];
-
-  const { data } = await supabase
-    .from("turnos")
-    .select("*")
-    .eq("hora", hora)
-    .eq("barbero", barbero)
-    .eq("fecha", hoy);
-
-  return data.length === 0;
-}
-
-async function obtenerTurnos(telefono) {
-  const { data, error } = await supabase
-    .from("turnos")
-    .select("*")
-    .eq("telefono", telefono)
-    .order("fecha", { ascending: true });
-
-  if (error) {
-    console.log("❌ Error obteniendo turnos:", error);
-    return null;
-  }
-
-  return data;
-}
-
 async function obtenerHorariosDisponibles(barbero) {
   const hoy = new Date().toISOString().split("T")[0];
 
-const { data: barberData, error } = await supabase
-  .from("barberos")
-  .select("*")
-  .ilike("nombre", barbero)
-  .maybeSingle();
+  // ⛔ fallback seguro (NO rompe nunca)
+  let hora_inicio = "10:00";
+  let hora_fin = "20:00";
 
-if (error || !barberData) {
-  console.log("❌ No se encontró barbero:", barbero);
-  return [];
-}
+  try {
+    const { data } = await supabase
+      .from("barberos")
+      .select("*")
+      .ilike("nombre", barbero)
+      .maybeSingle();
 
-const { hora_inicio, hora_fin } = barberData;
+    if (data) {
+      hora_inicio = data.hora_inicio;
+      hora_fin = data.hora_fin;
+    }
+  } catch (error) {
+    console.log("⚠️ Error obteniendo barbero:", error);
+  }
 
-// generar horarios cada 30 min
-const horariosBase = [];
-let horaActual = hora_inicio;
+  // generar horarios
+  const horariosBase = [];
+  let horaActual = hora_inicio;
 
-while (horaActual < hora_fin) {
-  horariosBase.push(horaActual);
+  while (horaActual < hora_fin) {
+    horariosBase.push(horaActual);
 
-  const [h, m] = horaActual.split(":").map(Number);
-  const date = new Date();
-  date.setHours(h, m + 30);
+    const [h, m] = horaActual.split(":").map(Number);
+    const date = new Date();
+    date.setHours(h, m + 30);
 
-  horaActual = date.toTimeString().slice(0, 5);
-}
+    horaActual = date.toTimeString().slice(0, 5);
+  }
 
-  const { data } = await supabase
+  // filtrar ocupados
+  const { data: turnos } = await supabase
     .from("turnos")
     .select("hora")
     .eq("barbero", barbero)
     .eq("fecha", hoy);
 
-  const ocupados = data.map(t => t.hora);
+  const ocupados = (turnos || []).map(t => t.hora);
 
   return horariosBase.filter(h => !ocupados.includes(h));
 }
