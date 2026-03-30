@@ -100,7 +100,7 @@ async function obtenerHorariosDisponibles(barbero) {
 
   // generar horarios
   const horariosBase = [];
-  let horaActual = hora_inicio;
+  let horaActual = String(hora_inicio).slice(0, 5);
 
   while (horaActual < hora_fin) {
     horariosBase.push(horaActual);
