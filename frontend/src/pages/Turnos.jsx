@@ -1,120 +1,418 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase, guardarTurno, turnoDisponible } from "../lib/supabase";
 
-export default function Turnos() {
-  const [turnos, setTurnos] = useState([
-    {
-      id: 1,
-      nombre: "Joaquin",
-      telefono: "123",
-      servicio: "Corte",
-      barbero: "Agus",
-      fecha: "2026-03-27",
-      hora: "10:00",
-    },
-    {
-      id: 2,
-      nombre: "Lucas",
-      telefono: "456",
-      servicio: "Barba",
-      barbero: "Mateo",
-      fecha: "2026-03-27",
-      hora: "11:00",
-    },
-  ]);
+// 🎨 colores de estado
+const estadoColores = {
+  pendiente: "bg-yellow-100 text-yellow-800",
+  confirmado: "bg-blue-100 text-blue-800",
+  cancelado: "bg-red-100 text-red-800",
+  completado: "bg-emerald-600 text-white",
+};
+
+export default function Turnos({ user, onLogout }) {
+  const [turnos, setTurnos] = useState([]);
+  const [barberos, setBarberos] = useState([]);
+  const [horarios, setHorarios] = useState([]);
+  const [toast, setToast] = useState(null);
+
+const getRowColor = (estado) => {
+  switch (estado) {
+    case "pendiente":
+      return "#facc1550"; // amarillo más fuerte
+    case "confirmado":
+      return "#3b82f650"; // azul más fuerte
+    case "completado":
+      return "#22c55e80"; // verde más fuerte
+    case "cancelado":
+      return "#dc262650"; // rojo más fuerte
+    default:
+      return "transparent";
+  }
+};
+
+  const [nuevo, setNuevo] = useState({
+    nombre: "",
+    telefono: "",
+    servicio: "",
+    barbero: "",
+    fecha: "",
+    hora: "",
+  });
+
+  const [busqueda, setBusqueda] = useState("");
+  const [filtroFecha, setFiltroFecha] = useState("");
+
+  useEffect(() => {
+    traerTurnos();
+    traerBarberos();
+  }, []);
+
+  useEffect(() => {
+  if (!nuevo.barbero || !nuevo.fecha) return;
+
+  async function cargarHorarios() {
+    const { data } = await supabase
+      .from("barberos")
+      .select("*")
+      .eq("nombre", nuevo.barbero)
+      .single();
+
+    if (data) {
+      const generados = generarHorarios(
+        data.hora_inicio,
+        data.hora_fin
+      );
+
+      setHorarios(generados);
+    }
+  }
+
+  cargarHorarios();
+}, [nuevo.barbero, nuevo.fecha]);
+
+  async function traerTurnos() {
+    const { data } = await supabase
+      .from("turnos")
+      .select("*")
+      .order("fecha", { ascending: true });
+
+    setTurnos(data || []);
+  }
+
+ async function traerBarberos() {
+  const { data, error } = await supabase.from("barberos").select("*");
+
+  console.log("BARBEROS:", data);
+  console.log("ERROR:", error);
+
+  setBarberos(data || []);
+}
+  // 🔥 generar horarios dinámicos
+  const generarHorarios = (inicio, fin) => {
+    const horas = [];
+
+    for (let h = inicio; h < fin; h++) {
+      horas.push(`${h}:00`);
+      horas.push(`${h}:30`);
+    }
+
+    return horas;
+  };
+
+  // 🔥 cuando cambia barbero
+  const handleBarberoChange = async (barberoNombre) => {
+    setNuevo({ ...nuevo, barbero: barberoNombre, hora: "" });
+
+    const { data } = await supabase
+      .from("barberos")
+      .select("*")
+      .eq("nombre", barberoNombre)
+      .single();
+
+    if (data) {
+      const horariosGenerados = generarHorarios(
+        data.hora_inicio,
+        data.hora_fin
+      );
+
+      setHorarios(horariosGenerados);
+    }
+  };
+
+  // 🔥 filtrar ocupados
+  const horariosDisponibles = horarios.filter((h) => {
+    return !turnos.some(
+      (t) =>
+        t.fecha === nuevo.fecha &&
+        t.barbero === nuevo.barbero &&
+        t.hora === h
+    );
+  });
+
+  // 🔥 cambiar estado
+async function cambiarEstado(id, nuevoEstado) {
+  try {
+    const res = await fetch(`http://localhost:3000/turnos/${id}/estado`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ estado: nuevoEstado }),
+    });
+
+    console.log("STATUS:", res.status);
+
+    traerTurnos();
+  } catch (error) {
+    console.error("ERROR:", error);
+  }
+}
+
+  // 🔥 PEGAR JUSTO ACÁ (DEBAJO)
+const mostrarToast = (mensaje, tipo = "success") => {
+  setToast({ mensaje, tipo });
+
+  setTimeout(() => {
+    setToast(null);
+  }, 3000);
+};
+
+  const turnosFiltrados = turnos.filter((t) => {
+    return (
+      (user.tipo === "admin" || t.barbero === user.nombre) &&
+      t.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
+      (filtroFecha ? t.fecha === filtroFecha : true)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6">
 
+      {toast && (
+  <div className={`toast ${toast.tipo}`}>
+    {toast.mensaje}
+  </div>
+)}
+
       {/* HEADER */}
-      <h1 className="text-3xl font-bold mb-6">📅 Panel de Turnos</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">📅 Panel de Turnos</h1>
+          <p className="text-sm text-neutral-400">
+            {user.nombre} · {user.tipo}
+          </p>
+        </div>
+
+        <button
+          onClick={onLogout}
+          className="bg-neutral-800 px-4 py-1 rounded"
+        >
+          Cerrar sesión
+        </button>
+      </div>
 
       {/* CREAR TURNO */}
-      <div className="bg-neutral-900 p-4 rounded-2xl mb-6 shadow-lg">
-        <h2 className="text-lg mb-3 font-semibold">➕ Crear turno</h2>
+      {user.tipo === "admin" && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-2">➕ Crear turno</h2>
 
-        <div className="grid grid-cols-6 gap-2">
+         <div className="form-grid">
+            <input
+              placeholder="Nombre"
+              value={nuevo.nombre}
+              onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
+              className="input"
+            />
+            <input
+              placeholder="Teléfono"
+              value={nuevo.telefono}
+              onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })}
+              className="input"
+            />
+            <input
+              placeholder="Servicio"
+              value={nuevo.servicio}
+              onChange={(e) => setNuevo({ ...nuevo, servicio: e.target.value })}
+              className="input"
+            />
+
+            {/* 🔥 SELECT BARBEROS */}
+            <select
+              value={nuevo.barbero}
+              onChange={(e) => handleBarberoChange(e.target.value)}
+              className="input"
+            >
+              <option value="">Seleccionar barbero</option>
+              {barberos.map((b) => (
+                <option key={b.id} value={b.nombre}>
+                  {b.nombre}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              value={nuevo.fecha}
+              onChange={(e) => setNuevo({ ...nuevo, fecha: e.target.value })}
+              className="input"
+            />
+
+            {/* 🔥 HORARIOS DINÁMICOS */}
+            <select
+              value={nuevo.hora}
+              onChange={(e) =>
+                setNuevo({ ...nuevo, hora: e.target.value })
+              }
+              className="input"
+            >
+              <option value="">Seleccionar hora</option>
+
+              {horariosDisponibles.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </select>
+
+   <div className="col-span-full flex justify-end mt-2">
+  <button
+    onClick={async () => {
+      if (!nuevo.fecha || !nuevo.hora || !nuevo.barbero) {
+        mostrarToast("Completá todos los campos ⚠️", "error");
+        return;
+      }
+
+      const disponible = await turnoDisponible(
+        nuevo.fecha,
+        nuevo.hora,
+        nuevo.barbero
+      );
+
+      if (!disponible) {
+        mostrarToast("Ese horario ya está ocupado ❌", "error");
+        return;
+      }
+
+      const ok = await guardarTurno(nuevo);
+
+      if (ok) {
+        mostrarToast("Turno creado correctamente 💈", "success");
+
+        traerTurnos();
+        setNuevo({
+          nombre: "",
+          telefono: "",
+          servicio: "",
+          barbero: "",
+          fecha: "",
+          hora: "",
+        });
+      } else {
+        mostrarToast("Error al crear turno ❌", "error");
+      }
+    }}
+    className="bg-blue-600 w-full md:w-auto md:px-8 py-2 rounded"
+  >
+    Crear
+  </button>
+</div>
+          </div>
+        </div>
+      )}
+
+      {/* BUSCAR */}
+      <div className="mb-4">
+        <h2 className="font-semibold mb-2">🔍 Buscar turnos</h2>
+
+        <div className="flex gap-2">
           <input
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-            placeholder="Nombre"
+            placeholder="Buscar cliente..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="input w-full"
           />
-          <input
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-            placeholder="Teléfono"
-          />
-          <input
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-            placeholder="Servicio"
-          />
-          <input
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-            placeholder="Barbero"
-          />
+
           <input
             type="date"
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
+            value={filtroFecha}
+            onChange={(e) => setFiltroFecha(e.target.value)}
+            className="input"
           />
-          <input
-            className="bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-            placeholder="Hora"
-          />
-
-          <button className="col-span-6 bg-blue-600 hover:bg-blue-700 py-2 rounded-xl">
-            Crear
-          </button>
         </div>
       </div>
 
-      {/* BUSCADOR */}
-      <div className="bg-neutral-900 p-4 rounded-2xl mb-4">
-        <h2 className="mb-2">🔍 Buscar turnos</h2>
-        <input
-          className="w-full bg-neutral-800 border border-neutral-700 p-2 rounded-xl text-white"
-          placeholder="Buscar..."
-        />
-      </div>
-
       {/* TABLA */}
-      <div className="bg-neutral-900 rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-800 text-left">
-            <tr>
-              <th className="p-3">Nombre</th>
-              <th className="p-3">Teléfono</th>
-              <th className="p-3">Servicio</th>
-              <th className="p-3">Barbero</th>
-              <th className="p-3">Fecha</th>
-              <th className="p-3">Hora</th>
-              <th className="p-3">Acción</th>
-            </tr>
-          </thead>
+<div className="border border-neutral-700">
 
-          <tbody>
-            {turnos.map((t) => (
-              <tr
-                key={t.id}
-                className="border-t border-neutral-800 hover:bg-neutral-800 transition"
-              >
-                <td className="p-3">{t.nombre}</td>
-                <td className="p-3">{t.telefono}</td>
-                <td className="p-3">{t.servicio}</td>
-                <td className="p-3">{t.barbero}</td>
-                <td className="p-3">{t.fecha}</td>
-                <td className="p-3">{t.hora}</td>
-                <td className="p-3">
-                  <button
-                    onClick={() =>
-                      setTurnos(turnos.filter((x) => x.id !== t.id))
-                    }
-                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg"
-                  >
-                    ✖
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+  {/* 🔥 NUEVO CONTENEDOR */}
+  <div className="table-container">
+
+    <table className="w-full text-sm">
+
+      <thead className="bg-neutral-800">
+        <tr>
+          <th className="p-2 text-left">Nombre</th>
+          <th className="p-2 text-left">Teléfono</th>
+          <th className="p-2 text-left">Servicio</th>
+          <th className="p-2 text-left">Barbero</th>
+          <th className="p-2 text-left">Fecha</th>
+          <th className="p-2 text-left">Hora</th>
+          <th className="p-2 text-left">Estado</th>
+          {user.tipo === "admin" && (
+            <th className="p-2 text-left">Acción</th>
+          )}
+        </tr>
+      </thead>
+
+      <tbody>
+        {turnosFiltrados.map((t) => (
+          <tr
+  key={t.id}
+  style={{
+    backgroundColor: getRowColor(t.estado),
+  }}
+>
+            <td className="p-2">{t.nombre}</td>
+            <td className="p-2">{t.telefono}</td>
+            <td className="p-2">{t.servicio}</td>
+            <td className="p-2">{t.barbero}</td>
+            <td className="p-2">{t.fecha}</td>
+            <td className="p-2">{t.hora}</td>
+
+<td className="p-2">
+ <span
+  onClick={() => {
+    const orden = ["pendiente", "confirmado", "completado"];
+    const actual = t.estado || "pendiente";
+    const index = orden.indexOf(actual);
+    const siguiente = orden[(index + 1) % orden.length];
+
+    cambiarEstado(t.id, siguiente);
+  }}
+  style={{
+    backgroundColor:
+      t.estado === "pendiente"
+        ? "#facc15"
+        : t.estado === "confirmado"
+        ? "#3b82f6"
+        : t.estado === "completado"
+        ? "#16a34a"
+        : t.estado === "cancelado"
+        ? "#dc2626"
+        : "#6b7280",
+    color: "white",
+    padding: "4px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: "600",
+    cursor: "pointer",
+  }}
+>
+  {t.estado || "pendiente"}
+</span>
+</td>
+
+            {user.tipo === "admin" && (
+              <td className="p-2">
+                <button
+                  onClick={async () => {
+                    await supabase.from("turnos").delete().eq("id", t.id);
+                    traerTurnos();
+                  }}
+                  className="bg-red-600 px-2 rounded"
+                >
+                  ✖
+                </button>
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+
+    </table>
+
+  </div>
+</div>
 
     </div>
   );

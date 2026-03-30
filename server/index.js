@@ -1,3 +1,11 @@
+process.on("uncaughtException", (err) => {
+  console.error("ERROR GLOBAL:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("PROMISE ERROR:", err);
+});
+
 require("dotenv").config();
 
 const express = require("express");
@@ -99,7 +107,29 @@ async function obtenerTurnos(telefono) {
 async function obtenerHorariosDisponibles(barbero) {
   const hoy = new Date().toISOString().split("T")[0];
 
-  const horariosBase = ["10:00", "10:30", "11:00"];
+  const { data: barberData } = await supabase
+  .from("barberos")
+  .select("*")
+  .eq("nombre", barbero)
+  .single();
+
+if (!barberData) return [];
+
+const { hora_inicio, hora_fin } = barberData;
+
+// generar horarios cada 30 min
+const horariosBase = [];
+let horaActual = hora_inicio;
+
+while (horaActual < hora_fin) {
+  horariosBase.push(horaActual);
+
+  const [h, m] = horaActual.split(":").map(Number);
+  const date = new Date();
+  date.setHours(h, m + 30);
+
+  horaActual = date.toTimeString().slice(0, 5);
+}
 
   const { data } = await supabase
     .from("turnos")
@@ -279,6 +309,20 @@ app.get("/admin/turnos", async (req, res) => {
   res.json(data);
 });
 
+app.put("/admin/turnos/:id", async (req, res) => {
+  const { id } = req.params;
+  const { estado } = req.body;
+
+  const { error } = await supabase
+    .from("turnos")
+    .update({ estado })
+    .eq("id", id);
+
+  if (error) return res.status(500).json({ error });
+
+  res.json({ ok: true });
+});
+
 app.delete("/admin/turnos/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -290,6 +334,37 @@ app.delete("/admin/turnos/:id", async (req, res) => {
   if (error) return res.status(500).json({ error });
 
   res.json({ ok: true });
+});
+
+// 👉 Cambiar estado del turno
+app.put("/turnos/:id/estado", async (req, res) => {
+  console.log("🔥 PUT /turnos funcionando");
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    // validar
+    if (!estado) {
+      return res.status(400).json({ error: "Falta estado" });
+    }
+
+    const { data, error } = await supabase
+      .from("turnos")
+      .update({ estado })
+      .eq("id", id)
+      .select();
+
+    if (error) {
+      console.error("❌ Error Supabase:", error);
+      return res.status(500).json({ error });
+    }
+
+    return res.json(data);
+
+  } catch (err) {
+    console.error("💥 CRASH EN PUT:", err);
+    return res.status(500).json({ error: "Error interno" });
+  }
 });
 
 // 👇👇👇 NUEVO ENDPOINT
@@ -683,7 +758,7 @@ async function notificarBarbero(turno) {
 // START
 // ==============================
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🔥 Servidor corriendo en puerto ${PORT}`);
 });
 

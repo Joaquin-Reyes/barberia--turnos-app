@@ -21,12 +21,17 @@ export async function guardarTurno(turno) {
 
 // 👉 FUNCIÓN PARA VALIDAR DISPONIBILIDAD
 export async function turnoDisponible(fecha, hora, barbero) {
-  const { data } = await supabase
-    .from('turnos')
-    .select('*')
-    .eq('fecha', fecha)
-    .eq('hora', hora)
-    .eq('barbero', barbero)
+  const { data, error } = await supabase
+    .from("turnos")
+    .select("*")
+    .eq("hora", hora)
+    .eq("barbero", barbero)
+    .eq("fecha", fecha);
 
-  return data.length === 0
+  if (error) {
+    console.error("Error verificando turno:", error);
+    return false;
+  }
+
+  return (data || []).length === 0;
 }

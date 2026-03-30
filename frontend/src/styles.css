@@ -1,0 +1,306 @@
+:root {
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --text: #1f2937;
+  --border: #e5e7eb;
+
+  --pendiente: #fbbf24;
+  --confirmado: #3b82f6;
+  --completado: #22c55e;
+  --cancelado: #ef4444;
+}
+
+/* RESET */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* CONTENEDOR */
+.container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* CARDS */
+.card {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* TITULOS */
+h1 {
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+/* INPUTS */
+input, select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-right: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* BOTONES */
+button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: var(--primary-hover);
+}
+
+/* BOTON ELIMINAR */
+.btn-delete {
+  background: #ef4444;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+}
+
+/* TABLA */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: 10px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+td {
+  padding: 12px 10px;
+  border-top: 1px solid var(--border);
+}
+
+tr:hover {
+  background: #f9fafb;
+}
+
+/* ESTADOS */
+.estado {
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+/* COLORES POR ESTADO */
+.pendiente {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.confirmado {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.completado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cancelado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* HEADER (opcional pero mejora mucho) */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.user {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* BOTON LOGOUT */
+.logout {
+  background: #e5e7eb;
+  color: #111;
+}
+
+.logout:hover {
+  background: #d1d5db;
+}
+
+/* ========================= */
+/* 📱 RESPONSIVE MEJORAS */
+/* ========================= */
+
+/* 🔥 CONTENEDOR CORRECTO (CENTRADO BIEN) */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  width: 100%;
+}
+
+/* CONTENEDOR MOBILE */
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+}
+
+/* HEADER RESPONSIVE */
+@media (max-width: 600px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* FORM RESPONSIVE */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 1024px) {
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* INPUTS FULL WIDTH EN MOBILE */
+@media (max-width: 600px) {
+  input, select, button {
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
+/* 🔥 CARDS MEJORADAS EN MOBILE (CON AIRE) */
+@media (max-width: 600px) {
+  .card {
+    margin-left: 5px;
+    margin-right: 5px;
+    padding: 15px;
+    border-radius: 10px;
+  }
+}
+
+/* TABLA RESPONSIVE */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* TABLA MÁS COMPACTA EN MOBILE */
+@media (max-width: 600px) {
+  th, td {
+    font-size: 12px;
+    padding: 8px;
+  }
+}
+
+/* 🔥 FIX REAL PARA MOBILE (ESPACIO LATERAL) */
+@media (max-width: 600px) {
+  body {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .container {
+    padding: 0;
+  }
+}
+
+/* ========================= */
+/* 🔥 TOAST PRO */
+/* ========================= */
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+
+  padding: 14px 18px;
+  border-radius: 10px;
+
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  z-index: 9999;
+
+  animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+}
+
+/* COLORES */
+.toast.success {
+  background: #22c55e;
+}
+
+.toast.error {
+  background: #ef4444;
+}
+
+/* ANIMACIONES */
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
