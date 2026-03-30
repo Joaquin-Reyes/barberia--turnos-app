@@ -100,7 +100,22 @@ async function obtenerHorariosDisponibles(barbero) {
 
   // generar horarios
   const horariosBase = [];
-  let horaActual = String(hora_inicio).slice(0, 5);
+  const formatearHora = (hora) => {
+  if (!hora) return "10:00";
+
+  const str = String(hora);
+
+  // si viene tipo 09:00:00 → cortar
+  if (str.includes(":")) {
+    return str.slice(0, 5);
+  }
+
+  // si viene como número → convertir
+  return `${str.padStart(2, "0")}:00`;
+};
+
+let horaActual = formatearHora(hora_inicio);
+const horaFin = formatearHora(hora_fin);
 
   while (horaActual < hora_fin) {
     horariosBase.push(horaActual);
