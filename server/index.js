@@ -23,11 +23,6 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN = "mi_token_secreto";
-const BARBEROS = {
-  "Agus": "5491131952430",
-  "Lucas": "5492222222222"
-};
-
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
@@ -415,20 +410,25 @@ app.post("/admin/crear-turno", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
-  // Verificar si está ocupado
-  const { data } = await supabase
+  // 🔹 Verificar si está ocupado
+  const { data: turnosExistentes, error: errorBusqueda } = await supabase
     .from("turnos")
     .select("*")
     .eq("hora", hora)
     .eq("barbero", barbero)
     .eq("fecha", fecha);
 
-  if (data.length > 0) {
+  if (errorBusqueda) {
+    console.log("❌ Error verificando turnos:", errorBusqueda);
+    return res.status(500).json({ error: "Error verificando disponibilidad" });
+  }
+
+  if (turnosExistentes.length > 0) {
     return res.status(400).json({ error: "Horario ocupado" });
   }
 
-  // Guardar turno
-  const { error } = await supabase.from("turnos").insert([{
+  // 🔹 Guardar turno
+  const { error: errorInsert } = await supabase.from("turnos").insert([{
     nombre,
     telefono,
     servicio,
@@ -439,45 +439,34 @@ app.post("/admin/crear-turno", async (req, res) => {
     recordatorio_3h: false
   }]);
 
-  if (error) {
-    console.log("❌ Error creando turno:", error);
+  if (errorInsert) {
+    console.log("❌ Error creando turno:", errorInsert);
     return res.status(500).json({ error: "Error guardando" });
   }
 
-  // 👇 NOTIFICAR AL BARBERO
+  // 🔹 Obtener teléfono del barbero desde la DB
+  const { data: barberoData, error: errorBarbero } = await supabase
+    .from("barberos")
+    .select("telefono, nombre")
+    .eq("nombre", barbero)
+    .single();
+
+  if (errorBarbero) {
+    console.log("❌ Error obteniendo barbero:", errorBarbero);
+  }
+
+  // 🔹 Notificar al barbero
   await notificarBarbero({
-  nombre,
-  servicio,
-  barbero,
-  fecha,
-  hora
-});
+    nombre,
+    servicio,
+    barbero,
+    fecha,
+    hora,
+    telefono: barberoData?.telefono
+  });
 
   res.json({ ok: true });
 });
-
-app.get("/barbero/turnos", async (req, res) => {
-  const barbero = req.session.barbero;
-  const { fecha } = req.query;
-
-  if (!barbero) return res.status(401).json({ error: "No autorizado" });
-
-  let query = supabase
-    .from("turnos")
-    .select("*")
-    .eq("barbero", barbero);
-
-  if (fecha) {
-    query = query.eq("fecha", fecha);
-  }
-
-  const { data, error } = await query.order("hora", { ascending: true });
-
-  if (error) return res.status(500).json({ error });
-
-  res.json(data);
-});
-
 // ==============================
 // TEST
 // ==============================
@@ -779,22 +768,22 @@ async function enviarMensaje(numero, mensaje) {
 }
 
 // 👇👇👇 PEGAR ESTO JUSTO ABAJO
-async function notificarBarbero(turno) {
-  const numeroBarbero = BARBEROS[turno.barbero];
+async function notificarBarbero(datos) {
+  const telefono = datos.telefono;
 
-  if (!numeroBarbero) {
-    console.log("⚠️ No hay número para el barbero:", turno.barbero);
+  if (!telefono) {
+    console.log("⚠️ No hay número para el barbero:", datos.barbero);
     return;
   }
 
   const mensaje = `📅 Nuevo turno asignado
 
-👤 ${turno.nombre}
-✂️ ${turno.servicio}
-⏰ ${turno.hora}
-📅 ${turno.fecha}`;
+👤 ${datos.nombre}
+✂️ ${datos.servicio}
+⏰ ${datos.hora}
+📅 ${datos.fecha}`;
 
-  await enviarMensaje(numeroBarbero, mensaje);
+  await enviarMensaje(telefono, mensaje);
 }
 
 // ==============================
@@ -809,7 +798,11 @@ app.listen(PORT, "0.0.0.0", () => {
 // 🔁 CRON RECORDATORIOS (1 HORA)
 // ==============================
 
-setInterval(() => {
-  console.log("⏳ Revisando recordatorios...");
-  enviarRecordatorios();
+setInterval(async () => {
+  try {
+    console.log("⏳ Revisando recordatorios...");
+    await enviarRecordatorios();
+  } catch (error) {
+    console.error("❌ Error en recordatorios:", error);
+  }
 }, 60 * 60 * 1000);

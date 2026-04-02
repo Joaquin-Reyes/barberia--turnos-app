@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase, guardarTurno, turnoDisponible } from "../lib/supabase";
 
+const API = "http://localhost:3000";
+
 // 🎨 colores de estado
 const estadoColores = {
   pendiente: "bg-yellow-100 text-yellow-800",
@@ -132,7 +134,7 @@ const getRowColor = (estado) => {
   // 🔥 cambiar estado
 async function cambiarEstado(id, nuevoEstado) {
   try {
-    const res = await fetch(`http://localhost:3000/turnos/${id}/estado`, {
+    const res = await fetch(`${API}/turnos/${id}/estado`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
