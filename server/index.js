@@ -772,11 +772,24 @@ async function enviarMensaje(numero, mensaje) {
 
 // 👇👇👇 PEGAR ESTO JUSTO ABAJO
 async function notificarBarbero(datos) {
+  let telefono = datos.telefono;
 
-console.log("📨 Notificando barbero...");
-  console.log("📱 Telefono recibido:", datos.telefono);
+  console.log("🔔 NOTIFICANDO BARBERO...");
 
-  const telefono = datos.telefono;
+  // 🔥 Si no viene teléfono, lo busca solo
+  if (!telefono) {
+    const { data: barberoData, error } = await supabase
+      .from("barberos")
+      .select("telefono")
+      .eq("nombre", datos.barbero)
+      .single();
+
+    if (error) {
+      console.log("❌ Error buscando teléfono:", error);
+    }
+
+    telefono = barberoData?.telefono;
+  }
 
   if (!telefono) {
     console.log("⚠️ No hay número para el barbero:", datos.barbero);
@@ -790,7 +803,7 @@ console.log("📨 Notificando barbero...");
 ⏰ ${datos.hora}
 📅 ${datos.fecha}`;
 
-console.log("🔔 NOTIFICANDO BARBERO a:", telefono);
+  console.log("📤 Enviando mensaje a:", telefono);
 
   await enviarMensaje(telefono, mensaje);
 }
