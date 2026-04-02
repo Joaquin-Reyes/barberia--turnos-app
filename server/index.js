@@ -744,6 +744,8 @@ Cuando quieras, escribime 👍`);
 
 async function enviarMensaje(numero, mensaje) {
   try {
+    console.log("📨 enviarMensaje llamado con:", numero);
+
     const url = `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`;
 
     await axios.post(
@@ -788,7 +790,7 @@ console.log("📨 Notificando barbero...");
 ⏰ ${datos.hora}
 📅 ${datos.fecha}`;
 
-console.log("📤 Enviando mensaje a:", telefono);
+console.log("🔔 NOTIFICANDO BARBERO a:", telefono);
 
   await enviarMensaje(telefono, mensaje);
 }
