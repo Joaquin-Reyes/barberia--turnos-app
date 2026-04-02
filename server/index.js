@@ -450,6 +450,7 @@ app.post("/admin/crear-turno", async (req, res) => {
     .select("telefono, nombre")
     .eq("nombre", barbero)
     .single();
+    console.log("📱 Telefono barbero:", barberoData?.telefono);
 
   if (errorBarbero) {
     console.log("❌ Error obteniendo barbero:", errorBarbero);
@@ -769,6 +770,10 @@ async function enviarMensaje(numero, mensaje) {
 
 // 👇👇👇 PEGAR ESTO JUSTO ABAJO
 async function notificarBarbero(datos) {
+
+console.log("📨 Notificando barbero...");
+  console.log("📱 Telefono recibido:", datos.telefono);
+
   const telefono = datos.telefono;
 
   if (!telefono) {
@@ -782,6 +787,8 @@ async function notificarBarbero(datos) {
 ✂️ ${datos.servicio}
 ⏰ ${datos.hora}
 📅 ${datos.fecha}`;
+
+console.log("📤 Enviando mensaje a:", telefono);
 
   await enviarMensaje(telefono, mensaje);
 }
