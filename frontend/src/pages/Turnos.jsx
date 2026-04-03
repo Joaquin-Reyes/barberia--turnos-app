@@ -51,7 +51,7 @@ const getRowColor = (estado) => {
 }, [user]);
 
   useEffect(() => {
-  if (!nuevo.barbero || !nuevo.fecha) return;
+  if (!nuevo.barbero || !nuevo.fecha || !user) return;
 
   async function cargarHorarios() {
     const { data } = await supabase
@@ -166,13 +166,17 @@ const mostrarToast = (mensaje, tipo = "success") => {
   }, 3000);
 };
 
-  const turnosFiltrados = turnos.filter((t) => {
-    return (
-      (user.tipo === "admin" || t.barbero === user.nombre) &&
-      t.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
-      (filtroFecha ? t.fecha === filtroFecha : true)
-    );
-  });
+ const turnosFiltrados = turnos.filter((t) => {
+  return (
+    (
+      user.rol === "admin" ||
+      user.rol === "superadmin" ||
+      t.barbero === user.nombre
+    ) &&
+    t.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
+    (filtroFecha ? t.fecha === filtroFecha : true)
+  );
+});
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6">
@@ -188,7 +192,7 @@ const mostrarToast = (mensaje, tipo = "success") => {
         <div>
           <h1 className="text-2xl font-bold">📅 Panel de Turnos</h1>
           <p className="text-sm text-neutral-400">
-            {user.nombre} · {user.tipo}
+            {user.email} · {user.rol}
           </p>
         </div>
 
@@ -201,7 +205,7 @@ const mostrarToast = (mensaje, tipo = "success") => {
       </div>
 
       {/* CREAR TURNO */}
-      {user.tipo === "admin" && (
+      {(user.rol === "admin" || user.rol === "superadmin") && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">➕ Crear turno</h2>
 
@@ -360,7 +364,7 @@ const mostrarToast = (mensaje, tipo = "success") => {
           <th className="p-2 text-left">Fecha</th>
           <th className="p-2 text-left">Hora</th>
           <th className="p-2 text-left">Estado</th>
-          {user.tipo === "admin" && (
+          {(user.rol === "admin" || user.rol === "superadmin") && (
             <th className="p-2 text-left">Acción</th>
           )}
         </tr>
@@ -414,7 +418,7 @@ const mostrarToast = (mensaje, tipo = "success") => {
 </span>
 </td>
 
-            {user.tipo === "admin" && (
+            {(user.rol === "admin" || user.rol === "superadmin") && (
               <td className="p-2">
                 <button
                   onClick={async () => {

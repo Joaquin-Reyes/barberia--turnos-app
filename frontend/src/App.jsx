@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Login from "./pages/Login";
 import Turnos from "./pages/Turnos";
+import SuperAdminPanel from "./pages/SuperAdminPanel"; // 👈 NUEVO
 import "./styles.css";
 
 function App() {
@@ -10,7 +11,22 @@ function App() {
     return <Login onLogin={setUser} />;
   }
 
-  return <Turnos user={user} onLogout={() => setUser(null)} />;
+  // 🔥 NUEVA LÓGICA
+  if (user.rol === "superadmin") {
+    return (
+      <SuperAdminPanel
+        user={user}
+        onLogout={() => setUser(null)}
+      />
+    );
+  }
+
+  return (
+    <Turnos
+      user={user}
+      onLogout={() => setUser(null)}
+    />
+  );
 }
 
 export default App;
