@@ -292,7 +292,10 @@ const mostrarToast = (mensaje, tipo = "success") => {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(nuevo),
+    body: JSON.stringify({
+  ...nuevo,
+  barberia_id: user.barberia_id
+}),
   });
 
   const data = await res.json();

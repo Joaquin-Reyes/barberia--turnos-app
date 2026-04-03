@@ -26,6 +26,8 @@ const VERIFY_TOKEN = "mi_token_secreto";
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
+const BARBERIA_ID_DEFAULT = "PONE_ACA_EL_ID_DE_TU_BARBERIA";
+
 // ==============================
 // SUPABASE
 // ==============================
@@ -40,7 +42,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-const BARBERIA_ID = "c27e3c08-c82a-4226-a334-8b86167a2c7d";
 
 // ==============================
 // 🔒 DEDUPLICACIÓN MENSAJES
@@ -67,7 +68,7 @@ async function guardarMensajeProcesado(id) {
 async function guardarTurno(turno) {
   const { error } = await supabase.from("turnos").insert([{
     ...turno,
-    barberia_id: BARBERIA_ID, // 👈 ACA
+    barberia_id: turno.barberia_id, // 👈 ACA
     recordatorio_24h: false,
     recordatorio_3h: false
   }]);
@@ -79,7 +80,7 @@ async function guardarTurno(turno) {
   return true;
 }
 
-async function obtenerHorariosDisponibles(barbero) {
+async function obtenerHorariosDisponibles(barbero, barberia_id) {
   const hoy = new Date().toISOString().split("T")[0];
 
   // ⛔ fallback seguro (NO rompe nunca)
@@ -88,10 +89,11 @@ async function obtenerHorariosDisponibles(barbero) {
 
   try {
     const { data } = await supabase
-      .from("barberos")
-      .select("*")
-      .ilike("nombre", barbero)
-      .maybeSingle();
+  .from("barberos")
+  .select("*")
+  .ilike("nombre", barbero)
+  .eq("barberia_id", barberia_id)
+  .maybeSingle();
 
     if (data) {
       hora_inicio = data.hora_inicio;
@@ -135,9 +137,10 @@ const horaFin = formatearHora(hora_fin);
   // filtrar ocupados
   const { data: turnos } = await supabase
     .from("turnos")
-    .select("hora")
-    .eq("barbero", barbero)
-    .eq("fecha", hoy);
+.select("hora")
+.eq("barbero", barbero)
+.eq("fecha", hoy)
+.eq("barberia_id", barberia_id);
 
   const ocupados = (turnos || []).map(t =>
   String(t.hora).slice(0, 5)
@@ -168,12 +171,12 @@ async function eliminarTurno(id) {
   return true;
 }
 
-async function obtenerTurnos(telefono) {
+async function obtenerTurnos(telefono, barberia_id) {
   const { data, error } = await supabase
     .from("turnos")
     .select("*")
     .eq("telefono", telefono)
-    .eq("barberia_id", BARBERIA_ID) // 👈 ACA
+    .eq("barberia_id", barberia_id)// 👈 ACA
     .order("fecha", { ascending: true });
 
   if (error) {
@@ -324,7 +327,7 @@ app.use("/admin/barbero.html", (req, res, next) => {
 
 // 👇👇👇 NUEVO ENDPOINT
 app.post("/admin/crear-turno", async (req, res) => {
-  const { nombre, telefono, servicio, barbero, fecha, hora } = req.body;
+  const { nombre, telefono, servicio, barbero, fecha, hora, barberia_id } = req.body;
 
   console.log("🧪 Endpoint ADMIN crear turno");
   console.log("🧪 Barbero recibido desde panel:", barbero);
@@ -359,7 +362,7 @@ app.post("/admin/crear-turno", async (req, res) => {
       barbero,
       fecha,
       hora,
-      barberia_id: BARBERIA_ID, // 👈 ACA
+      barberia_id, // 👈 ACA
       recordatorio_24h: false,
       recordatorio_3h: false
     }]);
@@ -643,7 +646,7 @@ app.post("/webhook", async (req, res) => {
       }
 
       if (mensaje === "2") {
-        const turnos = await obtenerTurnos(from);
+        const turnos = await obtenerTurnos(from, BARBERIA_ID_DEFAULT);
 
         if (!turnos || turnos.length === 0) {
           return await enviarMensaje(from, "📭 No tenés turnos agendados.");
@@ -721,7 +724,10 @@ app.post("/webhook", async (req, res) => {
       else if (mensaje === "3") usuario.barbero = "Cualquiera";
       else return await enviarMensaje(from, "Elegí 1, 2 o 3");
 
-      const horarios = await obtenerHorariosDisponibles(usuario.barbero);
+     const horarios = await obtenerHorariosDisponibles(
+  usuario.barbero,
+  BARBERIA_ID_DEFAULT
+);
 
       if (horarios.length === 0) {
         usuario.estado = "menu";
@@ -775,13 +781,14 @@ const disponible = await turnoDisponible(
         }
 
         const ok = await guardarTurno({
-          nombre: from,
-          telefono: from,
-          servicio: usuario.servicio,
-          barbero: usuario.barbero,
-          fecha: hoy,
-          hora: usuario.horario
-        });
+  nombre: from,
+  telefono: from,
+  servicio: usuario.servicio,
+  barbero: usuario.barbero,
+  fecha: hoy,
+  hora: usuario.horario,
+  barberia_id: BARBERIA_ID_DEFAULT
+});
 
         usuario.estado = "inicio";
 
