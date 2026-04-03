@@ -26,7 +26,7 @@ const VERIFY_TOKEN = "mi_token_secreto";
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-const BARBERIA_ID_DEFAULT = "PONE_ACA_EL_ID_DE_TU_BARBERIA";
+const BARBERIA_ID_DEFAULT = "c27e3c08-c82a-4226-a334-8b86167a2c7d";
 
 // ==============================
 // SUPABASE
