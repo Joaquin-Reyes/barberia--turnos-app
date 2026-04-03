@@ -35,6 +35,8 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
+const BARBERIA_ID = "c27e3c08-c82a-4226-a334-8b86167a2c7d";
+
 // ==============================
 // 🔒 DEDUPLICACIÓN MENSAJES
 // ==============================
@@ -60,6 +62,7 @@ async function guardarMensajeProcesado(id) {
 async function guardarTurno(turno) {
   const { error } = await supabase.from("turnos").insert([{
     ...turno,
+    barberia_id: BARBERIA_ID, // 👈 ACA
     recordatorio_24h: false,
     recordatorio_3h: false
   }]);
@@ -165,6 +168,7 @@ async function obtenerTurnos(telefono) {
     .from("turnos")
     .select("*")
     .eq("telefono", telefono)
+    .eq("barberia_id", BARBERIA_ID) // 👈 ACA
     .order("fecha", { ascending: true });
 
   if (error) {
@@ -350,6 +354,7 @@ app.post("/admin/crear-turno", async (req, res) => {
       barbero,
       fecha,
       hora,
+      barberia_id: BARBERIA_ID, // 👈 ACA
       recordatorio_24h: false,
       recordatorio_3h: false
     }]);
