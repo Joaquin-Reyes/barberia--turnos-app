@@ -610,29 +610,34 @@ app.post("/webhook", async (req, res) => {
     const changes = entry?.changes?.[0];
     const value = changes?.value;
 
-    // 🔥 NUEVO — detectar barbería automáticamente
-const phoneNumberId = value?.metadata?.phone_number_id;
+    // ==============================
+    // 🔥 DETECTAR BARBERÍA
+    // ==============================
+    const phoneNumberId = value?.metadata?.phone_number_id;
 
-if (!phoneNumberId) {
-  console.log("❌ No vino phone_number_id");
-  return;
-}
+    if (!phoneNumberId) {
+      console.log("❌ No vino phone_number_id");
+      return;
+    }
 
-const { data: barberia, error } = await supabase
-  .from("barberias")
-  .select("*")
-  .eq("phone_number_id", phoneNumberId)
-  .single();
+    const { data: barberia, error } = await supabase
+      .from("barberias")
+      .select("*")
+      .eq("phone_number_id", phoneNumberId)
+      .single();
 
-if (error || !barberia) {
-  console.log("❌ Barbería no encontrada:", phoneNumberId);
-  return;
-}
+    if (error || !barberia) {
+      console.log("❌ Barbería no encontrada:", phoneNumberId);
+      return;
+    }
 
-const barberia_id = barberia.id;
+    const barberia_id = barberia.id;
 
-console.log("✅ Barbería detectada:", barberia.nombre);
+    console.log("✅ Barbería detectada:", barberia.nombre);
 
+    // ==============================
+    // 📩 MENSAJE
+    // ==============================
     if (!value?.messages || value.messages.length === 0) return;
 
     const message = value.messages[0];
@@ -647,8 +652,39 @@ console.log("✅ Barbería detectada:", barberia.nombre);
     const from = message.from;
     const text = message.text.body;
 
-    if (!usuarios[from]) {
-      usuarios[from] = {
+    // ==============================
+    // 👤 CLIENTE (MULTI-BARBERÍA)
+    // ==============================
+    let { data: cliente } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("telefono", from)
+      .eq("barberia_id", barberia_id)
+      .maybeSingle();
+
+    if (!cliente) {
+      const { data: nuevoCliente } = await supabase
+        .from("clientes")
+        .insert({
+          telefono: from,
+          nombre: from,
+          barberia_id: barberia_id
+        })
+        .select()
+        .single();
+
+      cliente = nuevoCliente;
+    }
+
+    console.log("👤 Cliente:", cliente.telefono);
+
+    // ==============================
+    // 🧠 ESTADO POR BARBERÍA
+    // ==============================
+    const userKey = `${from}_${barberia_id}`;
+
+    if (!usuarios[userKey]) {
+      usuarios[userKey] = {
         estado: "inicio",
         servicio: null,
         barbero: null,
@@ -657,13 +693,17 @@ console.log("✅ Barbería detectada:", barberia.nombre);
       };
     }
 
-    const usuario = usuarios[from];
+    const usuario = usuarios[userKey];
     const mensaje = text.toLowerCase();
+
+    // ==============================
+    // 🤖 FLUJO BOT
+    // ==============================
 
     if (usuario.estado === "inicio") {
       usuario.estado = "menu";
 
-      return await enviarMensaje(from, `👋 Hola! Bienvenido a Agus Barber 💈
+      return await enviarMensaje(from, `👋 Hola! Bienvenido a ${barberia.nombre} 💈
 
 ¿Qué querés hacer?
 
@@ -762,10 +802,10 @@ console.log("✅ Barbería detectada:", barberia.nombre);
       else if (mensaje === "3") usuario.barbero = "Cualquiera";
       else return await enviarMensaje(from, "Elegí 1, 2 o 3");
 
-     const horarios = await obtenerHorariosDisponibles(
-  usuario.barbero,
-  barberia_id
-);
+      const horarios = await obtenerHorariosDisponibles(
+        usuario.barbero,
+        barberia_id
+      );
 
       if (horarios.length === 0) {
         usuario.estado = "menu";
@@ -802,16 +842,14 @@ Confirmamos?
     }
 
     if (usuario.estado === "confirmacion") {
-
-const hoy = new Date().toISOString().split("T")[0];
+      const hoy = new Date().toISOString().split("T")[0];
 
       if (mensaje === "1") {
-
-const disponible = await turnoDisponible(
-  hoy,
-  usuario.horario,
-  usuario.barbero
-);
+        const disponible = await turnoDisponible(
+          hoy,
+          usuario.horario,
+          usuario.barbero
+        );
 
         if (!disponible) {
           usuario.estado = "horario";
@@ -819,27 +857,28 @@ const disponible = await turnoDisponible(
         }
 
         const ok = await guardarTurno({
-  nombre: from,
-  telefono: from,
-  servicio: usuario.servicio,
-  barbero: usuario.barbero,
-  fecha: hoy,
-  hora: usuario.horario,
-  barberia_id: barberia_id
-});
+          nombre: cliente.nombre,
+          telefono: cliente.telefono,
+          servicio: usuario.servicio,
+          barbero: usuario.barbero,
+          fecha: hoy,
+          hora: usuario.horario,
+          barberia_id: barberia_id
+        });
 
         usuario.estado = "inicio";
 
-         // 👇👇👇 ACÁ VA
-    if (ok) {
-      await notificarBarbero({
-        nombre: from,
-        servicio: usuario.servicio,
-        barbero: usuario.barbero,
-        fecha: hoy,
-        hora: usuario.horario
-      });
-    }
+        if (ok) {
+          await notificarBarbero({
+            nombre: cliente.nombre,
+            telefono: cliente.telefono,
+            servicio: usuario.servicio,
+            barbero: usuario.barbero,
+            fecha: hoy,
+            hora: usuario.horario,
+            barberia_id: barberia_id
+          });
+        }
 
         if (ok) {
           return await enviarMensaje(from, `🔥 Turno confirmado
