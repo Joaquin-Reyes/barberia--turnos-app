@@ -90,25 +90,15 @@ const getRowColor = (estado) => {
   }
 
 async function traerBarberos() {
-  console.log("🔥 LLAMANDO API BARBEROS");
+  const { data, error } = await supabase
+    .from("barberos")
+    .select("*")
+    .eq("barberia_id", user.barberia_id);
 
-  try {
-    const token = localStorage.getItem("token");
+  console.log("BARBEROS:", data);
+  console.log("ERROR:", error);
 
-    const res = await fetch(`${API}/admin/barberos`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await res.json();
-
-    console.log("🔥 BARBEROS DESDE API:", data);
-
-    setBarberos(data || []);
-  } catch (error) {
-    console.error("❌ ERROR API BARBEROS:", error);
-  }
+  setBarberos(data || []);
 }
   // 🔥 generar horarios dinámicos
   const generarHorarios = (inicio, fin) => {

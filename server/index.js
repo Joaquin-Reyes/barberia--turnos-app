@@ -601,7 +601,9 @@ app.post("/admin/barberos", authMiddleware, async (req, res) => {
       .insert({
         nombre,
         telefono,
-        barberia_id
+        barberia_id,
+        hora_inicio: "10:00",
+        hora_fin: "20:00"
       })
       .select()
       .single();
