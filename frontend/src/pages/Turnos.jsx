@@ -89,16 +89,26 @@ const getRowColor = (estado) => {
     setTurnos(data || []);
   }
 
- async function traerBarberos() {
-  const { data, error } = await supabase
-  .from("barberos")
-  .select("*")
-  .eq("barberia_id", user.barberia_id);
+async function traerBarberos() {
+  console.log("🔥 LLAMANDO API BARBEROS");
 
-  console.log("BARBEROS:", data);
-  console.log("ERROR:", error);
+  try {
+    const token = localStorage.getItem("token");
 
-  setBarberos(data || []);
+    const res = await fetch(`${API}/admin/barberos`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    console.log("🔥 BARBEROS DESDE API:", data);
+
+    setBarberos(data || []);
+  } catch (error) {
+    console.error("❌ ERROR API BARBEROS:", error);
+  }
 }
   // 🔥 generar horarios dinámicos
   const generarHorarios = (inicio, fin) => {
@@ -307,6 +317,7 @@ const res = await fetch(`${API}/admin/crear-turno`, {
 });
 
   const data = await res.json();
+console.log("RESPUESTA CREAR BARBERO:", data);
 
   if (res.ok) {
     mostrarToast("Turno creado correctamente 💈", "success");

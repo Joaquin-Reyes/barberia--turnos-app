@@ -487,10 +487,17 @@ app.post("/superadmin/crear-barberia", async (req, res) => {
 
 // 🔐 PROTEGER PANEL ADMIN (PERO EXCLUIR BARBERO)
 app.use("/admin", (req, res, next) => {
-  // 👇 IMPORTANTE: dejar pasar barbero
+  // 🔥 permitir APIs
+  if (req.path.startsWith("/barberos")) return next();
+  if (req.path.startsWith("/crear-turno")) return next();
+  if (req.path.startsWith("/turnos")) return next();
+
+  // 👇 dejar pasar barbero
   if (req.path === "/barbero.html") return next();
 
+  // 🔒 proteger panel HTML
   if (req.session.auth) return next();
+
   return res.sendFile(path.join(__dirname, "admin/login.html"));
 });
 
