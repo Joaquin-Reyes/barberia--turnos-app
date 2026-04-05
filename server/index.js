@@ -576,6 +576,59 @@ app.put("/turnos/:id/estado", async (req, res) => {
 
 
 // ==============================
+// 💈 BARBEROS
+// ==============================
+
+// ➕ Crear barbero
+app.post("/admin/barberos", authMiddleware, async (req, res) => {
+  const { nombre, telefono } = req.body;
+  const barberia_id = req.user.barberia_id;
+
+  if (!nombre || !telefono) {
+    return res.status(400).json({ error: "Faltan datos" });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("barberos")
+      .insert({
+        nombre,
+        telefono,
+        barberia_id
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.log("❌ Error creando barbero:", error);
+      return res.status(500).json({ error: "Error guardando barbero" });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.log("❌ Error general:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+// 📋 Obtener barberos
+app.get("/admin/barberos", authMiddleware, async (req, res) => {
+  const barberia_id = req.user.barberia_id;
+
+  const { data, error } = await supabase
+    .from("barberos")
+    .select("*")
+    .eq("barberia_id", barberia_id);
+
+  if (error) {
+    console.log("❌ Error trayendo barberos:", error);
+    return res.status(500).json({ error });
+  }
+
+  res.json(data);
+});
+
+// ==============================
 // TEST
 // ==============================
 
