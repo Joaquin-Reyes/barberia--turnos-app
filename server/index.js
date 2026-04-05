@@ -389,10 +389,11 @@ app.post("/admin/crear-turno", authMiddleware, async (req, res) => {
 
     // 🔹 Obtener teléfono del barbero (case insensitive)
     const { data: barberoData, error: errorBarbero } = await supabase
-      .from("barberos")
-      .select("telefono, nombre")
-      .ilike("nombre", barbero)
-      .single();
+  .from("barberos")
+  .select("telefono, nombre")
+  .ilike("nombre", barbero)
+  .eq("barberia_id", barberia_id) // 👈 CLAVE
+  .maybeSingle();
 
     console.log("📱 Telefono barbero encontrado:", barberoData?.telefono);
 
@@ -409,7 +410,8 @@ app.post("/admin/crear-turno", authMiddleware, async (req, res) => {
       barbero,
       fecha,
       hora,
-      telefono: barberoData?.telefono
+      telefono: barberoData?.telefono,
+      barberia_id
     });
 
     res.json({ ok: true });
@@ -1023,11 +1025,11 @@ Te esperamos!`);
 // MENSAJES
 // ==============================
 
-async function enviarMensaje(numero, mensaje) {
+async function enviarMensaje(numero, mensaje, phone_number_id) {
   try {
     console.log("📨 enviarMensaje llamado con:", numero);
 
-    const url = `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`;
+    const url = `https://graph.facebook.com/v18.0/${phone_number_id || PHONE_NUMBER_ID}/messages`;
 
     await axios.post(
       url,
@@ -1057,16 +1059,26 @@ async function notificarBarbero(datos) {
 
   console.log("🔔 NOTIFICANDO BARBERO...");
 
-  // 🔥 Si no viene teléfono, lo busca solo
+  // 🔥 obtener barbería (CLAVE)
+  const { data: barberia } = await supabase
+    .from("barberias")
+    .select("phone_number_id")
+    .eq("id", datos.barberia_id)
+    .single();
+
+  const phone_number_id = barberia?.phone_number_id;
+
+  if (!phone_number_id) {
+    console.log("❌ Barbería sin WhatsApp configurado");
+    return;
+  }
+
+  // 🔍 buscar teléfono si no viene
   if (!telefono) {
-    const { data: barberoData, error } = await supabase
+    const { data: barberoData } = await supabase
       .from("barberos")
       .select("telefono")
       .ilike("nombre", datos.barbero);
-
-    if (error) {
-      console.log("❌ Error buscando teléfono:", error);
-    }
 
     telefono = barberoData?.[0]?.telefono;
   }
@@ -1085,7 +1097,7 @@ async function notificarBarbero(datos) {
 
   console.log("📤 Enviando mensaje a:", telefono);
 
-  await enviarMensaje(telefono, mensaje);
+  await enviarMensaje(telefono, mensaje, phone_number_id);
 }
 
 // ==============================

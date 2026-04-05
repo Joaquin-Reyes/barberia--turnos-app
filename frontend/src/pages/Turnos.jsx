@@ -41,6 +41,11 @@ const getRowColor = (estado) => {
     hora: "",
   });
 
+  const [nuevoBarbero, setNuevoBarbero] = useState({
+  nombre: "",
+  telefono: "",
+});
+
   const [busqueda, setBusqueda] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
 
@@ -331,6 +336,101 @@ const res = await fetch(`${API}/admin/crear-turno`, {
           </div>
         </div>
       )}
+
+
+{/* ============================== */}
+{/* 💈 GESTIÓN DE BARBEROS */}
+{/* ============================== */}
+
+{(user.rol === "admin" || user.rol === "superadmin") && (
+  <div className="mb-6">
+    <h2 className="text-lg font-semibold mb-2">💈 Barberos</h2>
+
+    {/* ➕ CREAR BARBERO */}
+    <div className="form-grid mb-4">
+      <input
+        placeholder="Nombre"
+        value={nuevoBarbero?.nombre || ""}
+        onChange={(e) =>
+          setNuevoBarbero({ ...nuevoBarbero, nombre: e.target.value })
+        }
+        className="input"
+      />
+
+      <input
+        placeholder="Teléfono (54911...)"
+        value={nuevoBarbero?.telefono || ""}
+        onChange={(e) =>
+          setNuevoBarbero({ ...nuevoBarbero, telefono: e.target.value })
+        }
+        className="input"
+      />
+
+      <button
+        onClick={async () => {
+          const token = localStorage.getItem("token");
+
+          if (!nuevoBarbero?.nombre || !nuevoBarbero?.telefono) {
+            mostrarToast("Completá nombre y teléfono ⚠️", "error");
+            return;
+          }
+
+          try {
+            const res = await fetch(`${API}/admin/barberos`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(nuevoBarbero),
+            });
+
+            if (res.ok) {
+              mostrarToast("Barbero agregado 💈", "success");
+              setNuevoBarbero({ nombre: "", telefono: "" });
+              traerBarberos();
+            } else {
+              mostrarToast("Error al crear barbero ❌", "error");
+            }
+          } catch (err) {
+            console.error(err);
+            mostrarToast("Error de conexión ❌", "error");
+          }
+        }}
+        className="bg-green-600 px-4 py-2 rounded"
+      >
+        Agregar
+      </button>
+    </div>
+
+    {/* 📋 LISTA DE BARBEROS */}
+    <div className="space-y-2">
+      {barberos.map((b) => (
+        <div
+          key={b.id}
+          className="flex justify-between items-center bg-neutral-800 p-2 rounded"
+        >
+          <div>
+            <p className="font-semibold">{b.nombre}</p>
+            <p className="text-sm text-neutral-400">{b.telefono}</p>
+          </div>
+
+          <button
+            onClick={async () => {
+              await supabase.from("barberos").delete().eq("id", b.id);
+              traerBarberos();
+              mostrarToast("Barbero eliminado", "success");
+            }}
+            className="bg-red-600 px-2 py-1 rounded"
+          >
+            ✖
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
 
       {/* BUSCAR */}
       <div className="mb-4">
