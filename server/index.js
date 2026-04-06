@@ -435,11 +435,7 @@ app.post("/superadmin/crear-barberia", async (req, res) => {
 
   try {
     const { data: authUser, error: errorAuth } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      });
+  await supabaseAdmin.auth.admin.inviteUserByEmail(email);
 
     if (errorAuth) {
       console.error("❌ Error auth:", errorAuth);
