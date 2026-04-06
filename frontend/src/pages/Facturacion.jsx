@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 
 export default function Facturacion({ user }) {
   const [turnos, setTurnos] = useState([]);
+  const [periodo, setPeriodo] = useState("dia");
   const [fechaFiltro, setFechaFiltro] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -10,20 +11,55 @@ export default function Facturacion({ user }) {
   useEffect(() => {
     if (!user) return;
     traerTurnos();
-  }, [user, fechaFiltro]);
+  }, [user, fechaFiltro, periodo]);
 
   async function traerTurnos() {
-    const { data } = await supabase
+    let query = supabase
       .from("turnos")
       .select("*")
       .eq("barberia_id", user.barberia_id)
-      .eq("fecha", fechaFiltro)
       .eq("estado", "completado");
+
+    if (periodo === "dia") {
+      query = query.eq("fecha", fechaFiltro);
+    } else if (periodo === "semana") {
+      const inicio = getLunesDeEstaSemana(fechaFiltro);
+      const fin = getDomingoDeEstaSemana(fechaFiltro);
+      query = query.gte("fecha", inicio).lte("fecha", fin);
+    } else if (periodo === "mes") {
+      const inicio = fechaFiltro.slice(0, 7) + "-01";
+      const fin = getUltimoDiaMes(fechaFiltro);
+      query = query.gte("fecha", inicio).lte("fecha", fin);
+    }
+
+    const { data } = await query;
     setTurnos(data || []);
   }
 
-  // CAJA TOTAL DEL DÍA
-  const totalDia = turnos.reduce((acc, t) => acc + (t.precio || 0), 0);
+  // HELPERS FECHA
+  function getLunesDeEstaSemana(fecha) {
+    const d = new Date(fecha);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split("T")[0];
+  }
+
+  function getDomingoDeEstaSemana(fecha) {
+    const d = new Date(getLunesDeEstaSemana(fecha));
+    d.setDate(d.getDate() + 6);
+    return d.toISOString().split("T")[0];
+  }
+
+  function getUltimoDiaMes(fecha) {
+    const d = new Date(fecha);
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0)
+      .toISOString().split("T")[0];
+  }
+
+  // CALCULOS
+  const totalPeriodo = turnos.reduce((acc, t) => acc + (t.precio || 0), 0);
+  const promedioPorTurno = turnos.length > 0 ? Math.round(totalPeriodo / turnos.length) : 0;
 
   // DESGLOSE POR BARBERO
   const porBarbero = turnos.reduce((acc, t) => {
@@ -32,6 +68,14 @@ export default function Facturacion({ user }) {
     acc[t.barbero].total += t.precio || 0;
     return acc;
   }, {});
+
+  const barberosList = Object.entries(porBarbero)
+    .map(([nombre, info]) => ({ nombre, ...info }))
+    .sort((a, b) => b.total - a.total);
+
+  const maxTotal = barberosList.length > 0 ? barberosList[0].total : 1;
+
+  const labelPeriodo = periodo === "dia" ? "del día" : periodo === "semana" ? "de la semana" : "del mes";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -51,17 +95,40 @@ export default function Facturacion({ user }) {
             Solo turnos completados
           </p>
         </div>
-        <input
-          type="date"
-          value={fechaFiltro}
-          onChange={(e) => setFechaFiltro(e.target.value)}
-        />
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {/* SELECTOR PERÍODO */}
+          <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: "1px solid #e5e7eb" }}>
+            {["dia", "semana", "mes"].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "12px",
+                  border: "none",
+                  borderRadius: 0,
+                  background: periodo === p ? "#2563eb" : "#ffffff",
+                  color: periodo === p ? "#ffffff" : "#6b7280",
+                  cursor: "pointer",
+                  fontWeight: periodo === p ? "600" : "400",
+                }}
+              >
+                {p === "dia" ? "Día" : p === "semana" ? "Semana" : "Mes"}
+              </button>
+            ))}
+          </div>
+          <input
+            type="date"
+            value={fechaFiltro}
+            onChange={(e) => setFechaFiltro(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* CONTENIDO */}
-      <div style={{ padding: "24px" }}>
+      <div style={{ padding: "24px", overflowY: "auto" }}>
 
-        {/* CAJA DEL DÍA */}
+        {/* RESUMEN */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
@@ -69,9 +136,11 @@ export default function Facturacion({ user }) {
           marginBottom: "20px",
         }}>
           <div className="card" style={{ textAlign: "center" }}>
-            <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 6px" }}>Caja del día</p>
+            <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 6px" }}>
+              Total {labelPeriodo}
+            </p>
             <p style={{ fontSize: "28px", fontWeight: "700", margin: 0, color: "#16a34a" }}>
-              ${totalDia.toLocaleString("es-AR")}
+              ${totalPeriodo.toLocaleString("es-AR")}
             </p>
           </div>
           <div className="card" style={{ textAlign: "center" }}>
@@ -83,37 +152,77 @@ export default function Facturacion({ user }) {
           <div className="card" style={{ textAlign: "center" }}>
             <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 6px" }}>Promedio por turno</p>
             <p style={{ fontSize: "28px", fontWeight: "700", margin: 0 }}>
-              ${turnos.length > 0 ? Math.round(totalDia / turnos.length).toLocaleString("es-AR") : 0}
+              ${promedioPorTurno.toLocaleString("es-AR")}
             </p>
           </div>
         </div>
 
-        {/* DESGLOSE POR BARBERO */}
+        {/* GRÁFICO POR BARBERO */}
+        {barberosList.length > 0 && (
+          <div className="card" style={{ marginBottom: "20px" }}>
+            <h2>📊 Facturación por barbero</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "16px" }}>
+              {barberosList.map((b) => (
+                <div key={b.nombre}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: "500" }}>{b.nombre}</span>
+                    <span style={{ fontSize: "13px", color: "#6b7280" }}>
+                      ${b.total.toLocaleString("es-AR")} · {b.turnos} turno{b.turnos !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div style={{ background: "#f3f4f6", borderRadius: "999px", height: "10px", overflow: "hidden" }}>
+                    <div style={{
+                      width: `${Math.round((b.total / maxTotal) * 100)}%`,
+                      background: "#2563eb",
+                      height: "100%",
+                      borderRadius: "999px",
+                      transition: "width 0.4s ease",
+                    }} />
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#9ca3af", marginTop: "3px" }}>
+                    {totalPeriodo > 0 ? Math.round((b.total / totalPeriodo) * 100) : 0}% del total
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* RANKING TABLA */}
         <div className="card" style={{ marginBottom: "20px" }}>
-          <h2>💈 Facturación por barbero</h2>
-          {Object.keys(porBarbero).length === 0 ? (
+          <h2>🏆 Ranking {labelPeriodo}</h2>
+          {barberosList.length === 0 ? (
             <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px 0" }}>
-              No hay turnos completados para esta fecha
+              No hay turnos completados para este período
             </p>
           ) : (
             <table>
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>Barbero</th>
                   <th>Turnos</th>
                   <th>Total</th>
-                  <th>% del día</th>
+                  <th>Promedio</th>
+                  <th>% del total</th>
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(porBarbero).map(([nombre, info]) => (
-                  <tr key={nombre}>
-                    <td>{nombre}</td>
-                    <td>{info.turnos}</td>
-                    <td>${info.total.toLocaleString("es-AR")}</td>
+                {barberosList.map((b, i) => (
+                  <tr key={b.nombre}>
                     <td>
-                      {totalDia > 0 ? Math.round((info.total / totalDia) * 100) : 0}%
+                      <span style={{
+                        fontWeight: "700",
+                        color: i === 0 ? "#ca8a04" : i === 1 ? "#6b7280" : "#92400e",
+                      }}>
+                        {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                      </span>
                     </td>
+                    <td style={{ fontWeight: "500" }}>{b.nombre}</td>
+                    <td>{b.turnos}</td>
+                    <td>${b.total.toLocaleString("es-AR")}</td>
+                    <td>${Math.round(b.total / b.turnos).toLocaleString("es-AR")}</td>
+                    <td>{totalPeriodo > 0 ? Math.round((b.total / totalPeriodo) * 100) : 0}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -126,7 +235,7 @@ export default function Facturacion({ user }) {
           <h2>📋 Detalle de turnos</h2>
           {turnos.length === 0 ? (
             <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px 0" }}>
-              No hay turnos completados para esta fecha
+              No hay turnos completados para este período
             </p>
           ) : (
             <div className="table-container">
@@ -136,6 +245,7 @@ export default function Facturacion({ user }) {
                     <th>Cliente</th>
                     <th>Barbero</th>
                     <th>Servicio</th>
+                    <th>Fecha</th>
                     <th>Hora</th>
                     <th>Precio</th>
                   </tr>
@@ -146,6 +256,7 @@ export default function Facturacion({ user }) {
                       <td>{t.nombre}</td>
                       <td>{t.barbero}</td>
                       <td>{t.servicio}</td>
+                      <td>{t.fecha}</td>
                       <td>{t.hora}</td>
                       <td>${(t.precio || 0).toLocaleString("es-AR")}</td>
                     </tr>

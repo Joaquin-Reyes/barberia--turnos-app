@@ -600,14 +600,14 @@ app.post("/admin/barberos", authMiddleware, async (req, res) => {
 
   try {
     const { data, error } = await supabase
-      .from("barberos")
-      .insert({
-        nombre,
-        telefono,
-        barberia_id,
-        hora_inicio: "10:00",
-        hora_fin: "20:00"
-      })
+  .from("barberos")
+  .insert({
+    nombre,
+    telefono,
+    barberia_id,
+    hora_inicio: 10,
+    hora_fin: 20
+  })
       .select()
       .single();
 
