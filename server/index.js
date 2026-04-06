@@ -340,7 +340,7 @@ app.use("/admin/barbero.html", (req, res, next) => {
 
 // 👇👇👇 NUEVO ENDPOINT
 app.post("/admin/crear-turno", authMiddleware, async (req, res) => {
-  const { nombre, telefono, servicio, barbero, fecha, hora } = req.body;
+  const { nombre, telefono, servicio, precio, barbero, fecha, hora } = req.body;
 
   console.log("🧪 Endpoint ADMIN crear turno");
   console.log("🧪 Barbero recibido desde panel:", barbero);
@@ -370,17 +370,20 @@ app.post("/admin/crear-turno", authMiddleware, async (req, res) => {
     }
 
     // 🔹 Guardar turno
-    const { error: errorInsert } = await supabase.from("turnos").insert([{
-      nombre,
-      telefono,
-      servicio,
-      barbero,
-      fecha,
-      hora,
-      barberia_id, // 👈 ACA
-      recordatorio_24h: false,
-      recordatorio_3h: false
-    }]);
+   const { precio } = req.body; // 👈 agregar esto arriba también
+
+const { error: errorInsert } = await supabase.from("turnos").insert([{
+  nombre,
+  telefono,
+  servicio,
+  precio: precio || 0, // 👈 agregar esto
+  barbero,
+  fecha,
+  hora,
+  barberia_id,
+  recordatorio_24h: false,
+  recordatorio_3h: false
+}]);
 
     if (errorInsert) {
       console.log("❌ Error creando turno:", errorInsert);

@@ -1,32 +1,39 @@
-import { useState } from "react";
-import Login from "./pages/Login";
-import Turnos from "./pages/Turnos";
-import SuperAdminPanel from "./pages/SuperAdminPanel"; // 👈 NUEVO
-import "./styles.css";
+import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import SuperAdminPanel from './pages/SuperAdminPanel'
+import Turnos from './pages/Turnos'
+import Barberos from './pages/Barberos'
+import Facturacion from './pages/Facturacion'
+import Configuracion from './pages/Configuracion'
+import './styles.css'
 
 function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null)
 
   if (!user) {
-    return <Login onLogin={setUser} />;
+    return <Login onLogin={setUser} />
   }
 
-  // 🔥 NUEVA LÓGICA
-  if (user.rol === "superadmin") {
-    return (
-      <SuperAdminPanel
-        user={user}
-        onLogout={() => setUser(null)}
-      />
-    );
+  if (user.rol === 'superadmin') {
+    return <SuperAdminPanel user={user} onLogout={() => setUser(null)} />
   }
 
   return (
-    <Turnos
-      user={user}
-      onLogout={() => setUser(null)}
-    />
-  );
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard user={user} onLogout={() => setUser(null)} />}>
+          <Route index element={<Navigate to="turnos" replace />} />
+          <Route path="turnos" element={<Turnos user={user} onLogout={() => setUser(null)} />} />
+          <Route path="barberos" element={<Barberos user={user} />} />
+          <Route path="facturacion" element={<Facturacion user={user} />} />
+          <Route path="configuracion" element={<Configuracion user={user} />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
-export default App;
+export default App
