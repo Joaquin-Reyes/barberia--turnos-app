@@ -28,7 +28,6 @@ function fechaLegible(isoDate) {
 }
 
 function parsearFecha(texto) {
-  // Normalizar: minúsculas + quitar tildes
   const norm = texto
     .toLowerCase()
     .normalize("NFD")
@@ -38,17 +37,14 @@ function parsearFecha(texto) {
   const hoyDate = new Date();
   hoyDate.setHours(12, 0, 0, 0);
 
-  // "hoy"
   if (norm === "hoy") return formatearFechaLocal(hoyDate);
 
-  // "mañana" / "manana"
   if (norm === "manana" || norm.includes("manana")) {
     const d = new Date(hoyDate);
     d.setDate(d.getDate() + 1);
     return formatearFechaLocal(d);
   }
 
-  // Días de la semana → próxima ocurrencia (desde mañana)
   const diasMap = {
     domingo: 0, lunes: 1, martes: 2, miercoles: 3,
     jueves: 4, viernes: 5, sabado: 6
@@ -56,13 +52,12 @@ function parsearFecha(texto) {
   for (const [nombre, num] of Object.entries(diasMap)) {
     if (norm.includes(nombre)) {
       const d = new Date(hoyDate);
-      d.setDate(d.getDate() + 1); // mínimo mañana
+      d.setDate(d.getDate() + 1);
       while (d.getDay() !== num) d.setDate(d.getDate() + 1);
       return formatearFechaLocal(d);
     }
   }
 
-  // DD/MM o DD/MM/YYYY o DD/MM/YY
   const match = texto.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
   if (match) {
     const dia = parseInt(match[1]);
@@ -74,7 +69,6 @@ function parsearFecha(texto) {
     const fecha = new Date(anio, mes, dia, 12, 0, 0);
     if (isNaN(fecha.getTime())) return null;
 
-    // No aceptar fechas pasadas
     const ayer = new Date(hoyDate);
     ayer.setDate(ayer.getDate() - 1);
     if (fecha <= ayer) return null;
@@ -212,9 +206,8 @@ async function procesarMensaje({ from, text, cliente, barberia, barberia_id }) {
   if (mensaje.includes("agus")) barberoDetectado = "Agus";
   if (mensaje.includes("lucas")) barberoDetectado = "Lucas";
 
-  const fechaDetectada = parsearFecha(texto);
+  const fechaDetectada = parsearFecha(text);
 
-  // solo detectar hora si parece un horario (formato HH:MM o número entre 7 y 23)
   const matchHora = mensaje.match(/\b([0-1]?[0-9]|2[0-3]):([0-5][0-9])\b/) ||
                     mensaje.match(/\b(2[0-3]|1[0-9]|[7-9])\b/);
   const horaDetectada = matchHora ? matchHora[0] : null;
@@ -325,18 +318,29 @@ async function procesarMensaje({ from, text, cliente, barberia, barberia_id }) {
     return await pedirBarbero(from);
   }
 
+  // 🔥 BLOQUE ARREGLADO
   if (usuario.estado === "barbero") {
-    if (mensaje === "1") usuario.barbero = "Agus";
-    else if (mensaje === "2") usuario.barbero = "Lucas";
-    else if (mensaje === "3") usuario.barbero = "Cualquiera";
-    else return await enviarMensaje(from, "Elegí 1, 2 o 3");
+    let barbero = null;
 
+    if (mensaje === "1") barbero = "Agus";
+    else if (mensaje === "2") barbero = "Lucas";
+    else if (mensaje === "3") barbero = "Cualquiera";
+    else if (mensaje.includes("agus")) barbero = "Agus";
+    else if (mensaje.includes("lucas")) barbero = "Lucas";
+    else if (mensaje.includes("libre") || mensaje.includes("cualquiera")) barbero = "Cualquiera";
+
+    if (!barbero) {
+      return await enviarMensaje(from, "❌ No entendí. Elegí 1, 2, 3 o escribí el nombre");
+    }
+
+    usuario.barbero = barbero;
     usuario.estado = "fecha";
+
     return await pedirFecha(from);
   }
 
   if (usuario.estado === "fecha") {
-    const fecha = parsearFecha(texto);
+    const fecha = parsearFecha(text);
 
     if (!fecha) {
       return await enviarMensaje(
