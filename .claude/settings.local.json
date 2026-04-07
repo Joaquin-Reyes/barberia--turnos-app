@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(node -e \"require\\('./server/index.js'\\)\")",
+      "Bash(kill %1)",
+      "Bash(node --check server/index.js)",
+      "Bash(node --check server/routes/auth.routes.js)",
+      "Bash(node --check server/routes/admin.routes.js)",
+      "Bash(node --check server/routes/superadmin.routes.js)",
+      "Bash(node --check server/routes/whatsapp.routes.js)",
+      "Bash(npm --prefix C:/Users/Joaco/barberia-backend run dev)"
+    ]
+  }
+}
