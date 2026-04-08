@@ -182,21 +182,8 @@ async function mostrarHorarios(from, usuario, barberia_id) {
   usuario.estado = "horario";
   usuario.horariosDisponibles = horarios;
 
-  // Separar mañana / tarde para mejor legibilidad
-  const manana = horarios.filter(h => parseInt(h.split(":")[0]) < 13);
-  const tarde = horarios.filter(h => parseInt(h.split(":")[0]) >= 13);
-
-  let texto = `⏰ Horarios disponibles para el ${fechaLegible(usuario.fecha)}:\n`;
-
-  if (manana.length) {
-    texto += `\n🌅 *Mañana*\n`;
-    manana.forEach(h => (texto += `• ${h}\n`));
-  }
-  if (tarde.length) {
-    texto += `\n🌆 *Tarde*\n`;
-    tarde.forEach(h => (texto += `• ${h}\n`));
-  }
-
+  let texto = `⏰ Horarios disponibles para el ${fechaLegible(usuario.fecha)}:\n\n`;
+  horarios.forEach(h => (texto += `• ${h}\n`));
   texto += "\nEscribí el horario que querés 👇";
 
   return await enviarMensaje(from, texto);
