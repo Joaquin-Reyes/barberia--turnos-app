@@ -231,7 +231,7 @@ export default function Barberos({ user }) {
                 onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
               />
               <input
-                placeholder="Teléfono (54911...)"
+                placeholder="Teléfono (ej: 1123456789)"
                 value={nuevo.telefono}
                 onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })}
               />

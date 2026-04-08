@@ -35,12 +35,33 @@ export default function Turnos({ user, onLogout }) {
   useEffect(() => {
     if (!nuevo.barbero || !nuevo.fecha || !user) return;
     async function cargarHorarios() {
-      const { data } = await supabase
-        .from("barberos").select("*")
+      // Obtener el barbero para conseguir su ID
+      const { data: barberoData } = await supabase
+        .from("barberos")
+        .select("id")
         .eq("nombre", nuevo.barbero)
         .eq("barberia_id", user.barberia_id)
         .single();
-      if (data) setHorarios(generarHorarios(data.hora_inicio, data.hora_fin));
+
+      if (!barberoData) return;
+
+      // Determinar el día de la semana de la fecha seleccionada
+      const fecha = new Date(nuevo.fecha + "T00:00:00");
+      const diaSemana = fecha.getDay(); // 0=Domingo, 1=Lunes, ...
+
+      // Buscar el horario del barbero para ese día
+      const { data: horarioDia } = await supabase
+        .from("horarios_barbero")
+        .select("hora_inicio, hora_fin")
+        .eq("barbero_id", barberoData.id)
+        .eq("dia_semana", diaSemana)
+        .single();
+
+      if (horarioDia) {
+        setHorarios(generarHorarios(horarioDia.hora_inicio, horarioDia.hora_fin));
+      } else {
+        setHorarios([]); // El barbero no trabaja ese día
+      }
     }
     cargarHorarios();
   }, [nuevo.barbero, nuevo.fecha]);
@@ -69,21 +90,19 @@ export default function Turnos({ user, onLogout }) {
 
   const generarHorarios = (inicio, fin) => {
     const horas = [];
-    for (let h = inicio; h < fin; h++) {
+    const h1 = typeof inicio === "number" ? inicio : parseInt(inicio);
+    const h2 = typeof fin === "number" ? fin : parseInt(fin);
+    if (isNaN(h1) || isNaN(h2)) return horas;
+    for (let h = h1; h < h2; h++) {
       horas.push(`${h}:00`);
       horas.push(`${h}:30`);
     }
     return horas;
   };
 
-  const handleBarberoChange = async (barberoNombre) => {
+  const handleBarberoChange = (barberoNombre) => {
     setNuevo({ ...nuevo, barbero: barberoNombre, hora: "" });
-    const { data } = await supabase
-      .from("barberos").select("*")
-      .eq("nombre", barberoNombre)
-      .eq("barberia_id", user.barberia_id)
-      .single();
-    if (data) setHorarios(generarHorarios(data.hora_inicio, data.hora_fin));
+    setHorarios([]);
   };
 
   const horariosDisponibles = horarios.filter((h) =>

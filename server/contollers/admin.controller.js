@@ -155,14 +155,18 @@ async function crearBarbero(req, res) {
   }
 
   try {
+    // Formatear teléfono: si el admin pone solo el número local (ej: "1123456789"),
+    // se le agrega el prefijo "549" automáticamente para WhatsApp
+    const telefonoFormateado = telefono.startsWith("549")
+      ? telefono
+      : "549" + telefono;
+
     const { data, error } = await supabase
       .from("barberos")
       .insert({
         nombre,
-        telefono,
+        telefono: telefonoFormateado,
         barberia_id,
-        hora_inicio: 10,
-        hora_fin: 20
       })
       .select()
       .single();
