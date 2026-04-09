@@ -1,4 +1,4 @@
-const { supabase } = require("../config/supabase");
+const { supabaseAdminAdmin } = require("../config/supabaseAdmin");
 const { notificarBarbero } = require("../services/whatsapp.service");
 const { formatearHora } = require("../services/agenda.service");
 
@@ -16,7 +16,7 @@ async function crearTurno(req, res) {
   }
 
   try {
-    const { data: turnosExistentes, error: errorBusqueda } = await supabase
+    const { data: turnosExistentes, error: errorBusqueda } = await supabaseAdmin
       .from("turnos")
       .select("*")
       .eq("hora", horaNormalizada)
@@ -32,7 +32,7 @@ async function crearTurno(req, res) {
       return res.status(400).json({ error: "Horario ocupado" });
     }
 
-    const { error: errorInsert } = await supabase.from("turnos").insert([{
+    const { error: errorInsert } = await supabaseAdmin.from("turnos").insert([{
       nombre,
       telefono,
       servicio,
@@ -50,7 +50,7 @@ async function crearTurno(req, res) {
       return res.status(500).json({ error: "Error guardando" });
     }
 
-    const { data: barberoData, error: errorBarbero } = await supabase
+    const { data: barberoData, error: errorBarbero } = await supabaseAdmin
       .from("barberos")
       .select("telefono, nombre")
       .ilike("nombre", barbero)
@@ -86,7 +86,7 @@ async function crearTurno(req, res) {
 async function listarTurnos(req, res) {
   const { fecha } = req.query;
 
-  let query = supabase.from("turnos").select("*");
+  let query = supabaseAdmin.from("turnos").select("*");
   if (fecha) query = query.eq("fecha", fecha);
 
   const { data, error } = await query.order("hora", { ascending: true });
@@ -98,7 +98,7 @@ async function actualizarEstadoTurno(req, res) {
   const { id } = req.params;
   const { estado } = req.body;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("turnos")
     .update({ estado })
     .eq("id", id);
@@ -110,7 +110,7 @@ async function actualizarEstadoTurno(req, res) {
 async function eliminarTurno(req, res) {
   const { id } = req.params;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("turnos")
     .delete()
     .eq("id", id);
@@ -129,7 +129,7 @@ async function updateTurnoEstado(req, res) {
       return res.status(400).json({ error: "Falta estado" });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("turnos")
       .update({ estado })
       .eq("id", id)
@@ -163,7 +163,7 @@ async function crearBarbero(req, res) {
       ? telefono
       : "549" + telefono;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("barberos")
       .insert({
         nombre,
@@ -188,7 +188,7 @@ async function crearBarbero(req, res) {
 async function listarBarberos(req, res) {
   const barberia_id = req.user.barberia_id;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("barberos")
     .select("*")
     .eq("barberia_id", barberia_id);
