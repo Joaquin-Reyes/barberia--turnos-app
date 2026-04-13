@@ -8,6 +8,7 @@ import Barberos from './pages/Barberos'
 import Facturacion from './pages/Facturacion'
 import Configuracion from './pages/Configuracion'
 import Cola from './pages/Cola'
+import PanelBarbero from './pages/PanelBarbero'
 import './styles.css'
 
 function App() {
@@ -21,16 +22,21 @@ function App() {
     return <SuperAdminPanel user={user} onLogout={() => setUser(null)} />
   }
 
+  const defaultRoute = user.rol === 'barbero' ? 'panel-barbero' : 'turnos'
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard user={user} onLogout={() => setUser(null)} />}>
-          <Route index element={<Navigate to="turnos" replace />} />
+          <Route index element={<Navigate to={defaultRoute} replace />} />
           <Route path="turnos" element={<Turnos user={user} onLogout={() => setUser(null)} />} />
           <Route path="barberos" element={<Barberos user={user} />} />
           <Route path="facturacion" element={<Facturacion user={user} />} />
           <Route path="configuracion" element={<Configuracion user={user} />} />
           <Route path="cola" element={<Cola user={user} />} />
+          {user.rol === 'barbero' && (
+            <Route path="panel-barbero" element={<PanelBarbero user={user} />} />
+          )}
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -21,6 +21,7 @@ const adminRoutes = require("./routes/admin.routes");
 const superadminRoutes = require("./routes/superadmin.routes");
 const whatsappRoutes = require("./routes/whatsapp.routes");
 const colaRoutes = require("./routes/cola.routes");
+const barberoRoutes = require("./routes/barbero.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.put("/turnos/:id/estado", updateTurnoEstado);
 app.use("/superadmin", superadminRoutes);
 app.use("/webhook", whatsappRoutes);
 app.use("/cola", colaRoutes);
+app.use("/barbero", barberoRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 Servidor funcionando");

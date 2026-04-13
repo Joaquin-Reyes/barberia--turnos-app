@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, DollarSign, Settings, LogOut, Clock } from 'lucide-react'
+import { LayoutDashboard, Users, DollarSign, Settings, LogOut, Clock, Scissors } from 'lucide-react'
 
-const navItems = [
+const adminNavItems = [
   { to: 'turnos', label: 'Turnos', icon: LayoutDashboard },
   { to: 'barberos', label: 'Barberos', icon: Users },
   { to: 'cola', label: 'Cola', icon: Clock },
@@ -9,7 +9,13 @@ const navItems = [
   { to: 'configuracion', label: 'Configuración', icon: Settings },
 ]
 
+const barberoNavItems = [
+  { to: 'panel-barbero', label: 'Mi Panel', icon: Scissors },
+  { to: 'cola', label: 'Cola', icon: Clock },
+]
+
 function Dashboard({ user, onLogout }) {
+  const navItems = user?.rol === 'barbero' ? barberoNavItems : adminNavItems
   return (
     <div className="flex h-screen bg-gray-50">
 
