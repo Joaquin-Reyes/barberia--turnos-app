@@ -11,6 +11,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
+const path = require("path");
 
 const authMiddleware = require("./middleware/auth");
 const { enviarRecordatorios } = require("./services/agenda.service");
@@ -30,13 +31,32 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARES
 // ==============================
 
-app.use(cors());
+const allowedOrigins = process.env.FRONTEND_URL
+  ? [process.env.FRONTEND_URL]
+  : [];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
 }));
+
+// ==============================
+// STATIC FRONTEND
+// ==============================
+
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
 // ==============================
 // ROUTES
@@ -55,8 +75,9 @@ app.use("/webhook", whatsappRoutes);
 app.use("/cola", colaRoutes);
 app.use("/barbero", barberoRoutes);
 
-app.get("/", (req, res) => {
-  res.send("🚀 Servidor funcionando");
+// Catch-all: serve React app for any non-API route
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
 // ==============================

@@ -106,4 +106,39 @@ async function notificarBarbero(datos) {
   }
 }
 
-module.exports = { enviarMensaje, notificarBarbero };
+async function enviarTemplateConfirmacion({ telefono, servicio, barbero, fecha, horario, precio }) {
+  const url = `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`;
+
+  await axios.post(
+    url,
+    {
+      messaging_product: "whatsapp",
+      to: telefono,
+      type: "template",
+      template: {
+        name: "turno_confirmado_v2",
+        language: { code: "es" },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: servicio },
+              { type: "text", text: barbero },
+              { type: "text", text: fecha },
+              { type: "text", text: horario },
+              { type: "text", text: String(precio) }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
+
+module.exports = { enviarMensaje, notificarBarbero, enviarTemplateConfirmacion };

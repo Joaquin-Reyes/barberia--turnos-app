@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
+import SetPassword from './pages/SetPassword'
 import Dashboard from './pages/Dashboard'
 import SuperAdminPanel from './pages/SuperAdminPanel'
 import Turnos from './pages/Turnos'
@@ -13,6 +14,10 @@ import './styles.css'
 
 function App() {
   const [user, setUser] = useState(null)
+
+  if (window.location.pathname === '/set-password') {
+    return <SetPassword />
+  }
 
   if (!user) {
     return <Login onLogin={setUser} />

@@ -7,7 +7,6 @@ export default function SuperAdminPanel({ user, onLogout }) {
   const [barberias, setBarberias] = useState([]);
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [configurando, setConfigurando] = useState(null); // id de la barbería que se está configurando
   const [whatsappForm, setWhatsappForm] = useState({
     phone_number_id: "",
@@ -27,18 +26,17 @@ export default function SuperAdminPanel({ user, onLogout }) {
   }
 
 async function crearBarberia() {
-  if (!nombre || !email || !password) return;
+  if (!nombre || !email) return;
   try {
     const res = await fetch(`${API}/superadmin/crear-barberia`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, email, password }),
+      body: JSON.stringify({ nombre, email }),
     });
     const data = await res.json();
     if (res.ok) {
       setNombre("");
       setEmail("");
-      setPassword("");
       traerBarberias();
       mostrarToast("Barbería creada ✅");
     } else {
@@ -115,14 +113,10 @@ async function crearBarberia() {
             className="input"
           />
 
-          <input
-  type="password"
-  placeholder="Password"
-  value={password}
-  onChange={(e) => setPassword(e.target.value)}
-  className="input"
-/>
-        
+          <p className="text-xs text-neutral-400">
+            El dueño recibirá un email para establecer su contraseña.
+          </p>
+
           <button onClick={crearBarberia} className="bg-blue-600 py-2 rounded">
             Crear barbería
           </button>

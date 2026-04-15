@@ -1,5 +1,5 @@
 const { supabaseAdmin } = require("../config/supabase");
-const { notificarBarbero } = require("../services/whatsapp.service");
+const { notificarBarbero, enviarTemplateConfirmacion } = require("../services/whatsapp.service");
 const { formatearHora } = require("../services/agenda.service");
 
 async function crearTurno(req, res) {
@@ -74,6 +74,23 @@ async function crearTurno(req, res) {
       telefono: barberoData?.telefono,
       barberia_id
     });
+
+    if (telefono) {
+      try {
+        const [y, m, d] = String(fecha).split("-");
+        await enviarTemplateConfirmacion({
+          telefono,
+          servicio,
+          barbero,
+          fecha: `${d}/${m}/${y}`,
+          horario: String(horaNormalizada).slice(0, 5),
+          precio: precio || 0
+        });
+        console.log("✅ Template confirmacion enviado al cliente:", telefono);
+      } catch (errTemplate) {
+        console.error("❌ Error enviando template al cliente:", errTemplate.response?.data || errTemplate.message);
+      }
+    }
 
     res.json({ ok: true });
 

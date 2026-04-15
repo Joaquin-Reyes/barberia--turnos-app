@@ -1,27 +1,13 @@
 const { supabaseAdmin } = require("../config/supabase");
 
 async function crearBarberia(req, res) {
-  const { nombre, email, password } = req.body;
+  const { nombre, email } = req.body;
 
-  if (!nombre || !email || !password) {
+  if (!nombre || !email) {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
   try {
-    const { data: authUser, error: errorAuth } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      });
-
-    if (errorAuth) {
-      console.error("❌ Error auth:", errorAuth);
-      return res.status(500).json({ error: "Error creando usuario" });
-    }
-
-    const userId = authUser.user.id;
-
     const { data: barberia, error: errorBarberia } =
       await supabaseAdmin
         .from("barberias")
@@ -33,6 +19,18 @@ async function crearBarberia(req, res) {
       console.error("❌ Error barbería:", errorBarberia);
       return res.status(500).json({ error: "Error creando barbería" });
     }
+
+    const { data: authUser, error: errorAuth } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: { barberia_id: barberia.id, rol: "admin" },
+      });
+
+    if (errorAuth) {
+      console.error("❌ Error invitación:", errorAuth);
+      return res.status(500).json({ error: "Error enviando invitación" });
+    }
+
+    const userId = authUser.user.id;
 
     const { error: errorUsuario } = await supabaseAdmin
       .from("usuarios")
