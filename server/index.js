@@ -76,7 +76,7 @@ app.use("/cola", colaRoutes);
 app.use("/barbero", barberoRoutes);
 
 // Catch-all: serve React app for any non-API route
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
