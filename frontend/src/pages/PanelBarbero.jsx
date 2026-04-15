@@ -13,7 +13,9 @@ function formatHora(str) {
 
 export default function PanelBarbero({ user }) {
   const [barberoId, setBarberoId] = useState(null);
-  const [clienteActual, setClienteActual] = useState(null);
+  // proximoCliente tiene la misma forma que la respuesta de /cola/terminar:
+  // null | { tipo: "turno_reservado" | "cola_espera" | "sin_clientes", nombre_cliente?, hora? }
+  const [proximoCliente, setProximoCliente] = useState(null);
   const [turnosHoy, setTurnosHoy] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [terminando, setTerminando] = useState(false);
@@ -31,23 +33,55 @@ export default function PanelBarbero({ user }) {
         }),
       ]);
 
-      // Procesar turnos primero para obtener el barbero_id real
       let bId = null;
+      let turnos = [];
       if (turnosRes.ok) {
         const data = await turnosRes.json();
-        setTurnosHoy(data.turnos || []);
+        turnos = data.turnos || [];
+        setTurnosHoy(turnos);
         if (data.barbero_id) {
           setBarberoId(data.barbero_id);
           bId = data.barbero_id;
         }
       }
 
-      // Usar el barbero_id para encontrar el cliente actual en la cola
+      // Prioridad 1: turno pendiente cuya hora ya llegó
+      const ahora = new Date();
+      const turnoDue = turnos
+        .filter((t) => t.estado === "pendiente" && t.hora)
+        .filter((t) => {
+          const [h, m] = t.hora.slice(0, 5).split(":").map(Number);
+          const horaTurno = new Date();
+          horaTurno.setHours(h, m, 0, 0);
+          return horaTurno <= ahora;
+        })
+        .sort((a, b) => a.hora.localeCompare(b.hora))[0];
+
+      if (turnoDue) {
+        setProximoCliente({
+          tipo: "turno_reservado",
+          nombre_cliente: turnoDue.nombre,
+          hora: turnoDue.hora,
+          turno_id: turnoDue.id,
+        });
+        return;
+      }
+
+      // Prioridad 2: cliente actual en cola de espera
       if (colaRes.ok) {
         const data = await colaRes.json();
         const miBarbero = (data.barberos || []).find((b) => b.id === bId);
-        setClienteActual(miBarbero?.cliente_actual || null);
+        const clienteActual = miBarbero?.cliente_actual;
+        if (clienteActual) {
+          setProximoCliente({
+            tipo: "cola_espera",
+            nombre_cliente: clienteActual.nombre_cliente,
+          });
+          return;
+        }
       }
+
+      setProximoCliente(null);
     } catch (err) {
       console.error(err);
       mostrarToast("Error al cargar datos", "error");
@@ -72,6 +106,16 @@ export default function PanelBarbero({ user }) {
         },
         () => cargarDatos()
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "turnos",
+          filter: `barberia_id=eq.${user.barberia_id}`,
+        },
+        () => cargarDatos()
+      )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -82,23 +126,35 @@ export default function PanelBarbero({ user }) {
     setTerminando(true);
     const token = localStorage.getItem("token");
     try {
+      // Si el cliente actual es un turno reservado, marcarlo como completado
+      if (proximoCliente?.tipo === "turno_reservado" && proximoCliente.turno_id) {
+        await fetch(`${API}/turnos/${proximoCliente.turno_id}/estado`, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ estado: "completado" }),
+        });
+        // Actualizar la tabla localmente de inmediato
+        setTurnosHoy((prev) =>
+          prev.map((t) =>
+            t.id === proximoCliente.turno_id ? { ...t, estado: "completado" } : t
+          )
+        );
+      }
+
       const res = await fetch(`${API}/cola/terminar/${barberoId}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.tipo === "turno_reservado") {
-        mostrarToast(`Siguiente: ${data.nombre_cliente} (reservado)`);
-      } else if (data.tipo === "cola_espera") {
-        mostrarToast(`Siguiente en cola: ${data.nombre_cliente}`);
-      } else {
-        mostrarToast("Sin clientes en espera");
-      }
     } catch {
       mostrarToast("Error al procesar", "error");
     } finally {
       setTerminando(false);
+      // Refrescar todo para mostrar el próximo cliente correcto
+      await cargarDatos();
     }
   }
 
@@ -107,9 +163,45 @@ export default function PanelBarbero({ user }) {
     setTimeout(() => setToast(null), 3000);
   }
 
-  const proxTurno = !clienteActual
-    ? turnosHoy.find((t) => t.estado === "confirmado" || t.estado === "pendiente")
-    : null;
+  function renderCardInfo() {
+    if (!proximoCliente || proximoCliente.tipo === "sin_clientes") {
+      return (
+        <p style={{ fontSize: 15, color: "#9ca3af", margin: "0 0 20px" }}>
+          Sin clientes por el momento
+        </p>
+      );
+    }
+
+    if (proximoCliente.tipo === "turno_reservado") {
+      return (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ fontSize: 11, color: "#1d4ed8", fontWeight: 600, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Atendiendo &mdash; turno reservado
+          </p>
+          <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#1e3a8a" }}>
+            {proximoCliente.nombre_cliente}
+          </p>
+          {proximoCliente.hora && (
+            <p style={{ fontSize: 13, color: "#3b82f6", margin: 0 }}>
+              {formatHora(proximoCliente.hora)}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // cola_espera
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          Cola de espera
+        </p>
+        <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#14532d" }}>
+          {proximoCliente.nombre_cliente}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -134,64 +226,18 @@ export default function PanelBarbero({ user }) {
       ) : (
         <div style={{ padding: 24, overflowY: "auto" }}>
 
-          {/* TURNO ACTUAL */}
-          {clienteActual ? (
-            <div style={{
-              background: "#f0fdf4",
-              border: "2px solid #86efac",
-              borderRadius: 12,
-              padding: "20px 24px",
-              marginBottom: 20,
-            }}>
-              <p style={{ fontSize: 12, color: "#16a34a", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Atendiendo ahora
-              </p>
-              <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#14532d" }}>
-                {clienteActual.nombre_cliente}
-              </p>
-              <p style={{ fontSize: 13, color: "#166534", margin: "0 0 16px" }}>
-                Desde las {formatHora(clienteActual.hora_llegada)}
-              </p>
-              <button
-                onClick={terminar}
-                disabled={terminando}
-                style={{ background: "#16a34a", padding: "12px 24px", fontSize: 14, width: "100%" }}
-              >
-                {terminando ? "Procesando..." : "Terminé"}
-              </button>
-            </div>
-          ) : proxTurno ? (
-            <div style={{
-              background: "#eff6ff",
-              border: "2px solid #93c5fd",
-              borderRadius: 12,
-              padding: "20px 24px",
-              marginBottom: 20,
-            }}>
-              <p style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Próximo turno
-              </p>
-              <p style={{ fontSize: 22, fontWeight: 700, margin: "0 0 4px", color: "#1e3a8a" }}>
-                {proxTurno.nombre}
-              </p>
-              <p style={{ fontSize: 13, color: "#1e40af", margin: 0 }}>
-                {formatHora(proxTurno.hora)} — {proxTurno.servicio}
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              background: "#f9fafb",
-              border: "2px solid #e5e7eb",
-              borderRadius: 12,
-              padding: "24px",
-              marginBottom: 20,
-              textAlign: "center",
-            }}>
-              <p style={{ fontSize: 15, color: "#9ca3af", margin: 0 }}>
-                Sin clientes por el momento
-              </p>
-            </div>
-          )}
+          {/* CARD TURNO ACTUAL */}
+          <div className="card" style={{ marginBottom: 20 }}>
+            <h2 style={{ marginBottom: 16 }}>Tu próximo cliente</h2>
+            {renderCardInfo()}
+            <button
+              onClick={terminar}
+              disabled={terminando || !barberoId}
+              style={{ background: "#16a34a", padding: "12px 24px", fontSize: 14, width: "100%" }}
+            >
+              {terminando ? "Procesando..." : "Terminé"}
+            </button>
+          </div>
 
           {/* TURNOS DEL DÍA */}
           <div className="card">

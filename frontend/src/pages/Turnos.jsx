@@ -1,17 +1,8 @@
 import { useEffect, useState } from "react";
+import { Plus, Search, Pencil, X } from "lucide-react";
 import { supabase, turnoDisponible } from "../lib/supabase";
 
 const API = "https://barberia-backend-production-7dae.up.railway.app";
-
-const getRowColor = (estado) => {
-  switch (estado) {
-    case "pendiente": return "#facc1550";
-    case "confirmado": return "#3b82f650";
-    case "completado": return "#22c55e80";
-    case "cancelado": return "#dc262650";
-    default: return "transparent";
-  }
-};
 
 export default function Turnos({ user, onLogout }) {
   const [turnos, setTurnos] = useState([]);
@@ -36,7 +27,6 @@ export default function Turnos({ user, onLogout }) {
   useEffect(() => {
     if (!nuevo.barbero || !nuevo.fecha || !user) return;
     async function cargarHorarios() {
-      // Obtener el barbero para conseguir su ID
       const { data: barberoData } = await supabase
         .from("barberos")
         .select("id")
@@ -46,11 +36,9 @@ export default function Turnos({ user, onLogout }) {
 
       if (!barberoData) return;
 
-      // Determinar el día de la semana de la fecha seleccionada
       const fecha = new Date(nuevo.fecha + "T00:00:00");
-      const diaSemana = fecha.getDay(); // 0=Domingo, 1=Lunes, ...
+      const diaSemana = fecha.getDay();
 
-      // Buscar el horario del barbero para ese día
       const { data: horarioDia } = await supabase
         .from("horarios_barbero")
         .select("hora_inicio, hora_fin")
@@ -61,7 +49,7 @@ export default function Turnos({ user, onLogout }) {
       if (horarioDia) {
         setHorarios(generarHorarios(horarioDia.hora_inicio, horarioDia.hora_fin));
       } else {
-        setHorarios([]); // El barbero no trabaja ese día
+        setHorarios([]);
       }
     }
     cargarHorarios();
@@ -143,53 +131,58 @@ export default function Turnos({ user, onLogout }) {
     traerTurnos();
   }
 
-  const pendientes = turnos.filter(t => t.estado === "pendiente").length;
+  const pendientes  = turnos.filter(t => t.estado === "pendiente").length;
   const confirmados = turnos.filter(t => t.estado === "confirmado").length;
   const completados = turnos.filter(t => t.estado === "completado").length;
+
+  /* ─── Estilos compartidos ─── */
+  const topbarStyle = {
+    padding: "14px 24px",
+    background: "#ffffff",
+    borderBottom: "1px solid #E2E8F0",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
       {toast && <div className={`toast ${toast.tipo}`}>{toast.mensaje}</div>}
 
-      {/* TOPBAR */}
-      <div style={{
-        padding: "16px 24px",
-        background: "#ffffff",
-        borderBottom: "1px solid #e5e7eb",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}>
+      {/* ─── TOPBAR ─── */}
+      <div style={topbarStyle}>
         <div>
-          <h1 style={{ fontSize: "16px", fontWeight: "600", margin: 0 }}>Turnos</h1>
-          <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>
+          <h1 style={{ fontSize: 15, fontWeight: 600, margin: 0, letterSpacing: "-0.02em", color: "#0F172A" }}>
+            Turnos
+          </h1>
+          <p style={{ fontSize: 12, color: "#94A3B8", margin: "2px 0 0" }}>
             {new Date().toLocaleDateString("es-AR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <span style={{ fontSize: "12px", background: "#fef3c7", color: "#92400e", padding: "4px 10px", borderRadius: "999px" }}>
-            {pendientes} pendientes
-          </span>
-          <span style={{ fontSize: "12px", background: "#dbeafe", color: "#1e40af", padding: "4px 10px", borderRadius: "999px" }}>
-            {confirmados} confirmados
-          </span>
-          <span style={{ fontSize: "12px", background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: "999px" }}>
-            {completados} completados
-          </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="estado pendiente" style={{ cursor: "default" }}>{pendientes} pendientes</span>
+          <span className="estado confirmado" style={{ cursor: "default" }}>{confirmados} confirmados</span>
+          <span className="estado completado" style={{ cursor: "default" }}>{completados} completados</span>
         </div>
       </div>
 
-      {/* CONTENIDO */}
+      {/* ─── CONTENIDO ─── */}
       <div style={{ padding: "24px", flex: 1, overflowY: "auto" }}>
 
         {/* CREAR TURNO */}
         {(user.rol === "admin" || user.rol === "superadmin") && (
-          <div className="card" style={{ marginBottom: "20px" }}>
-            <h2>➕ Crear turno</h2>
+          <div className="card">
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
+              <Plus size={14} color="#475569" />
+              <h2 style={{ margin: 0 }}>Crear turno</h2>
+            </div>
             <div className="form-grid">
               <input
-                placeholder="Nombre"
+                placeholder="Nombre del cliente"
                 value={nuevo.nombre}
                 onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
               />
@@ -198,17 +191,11 @@ export default function Turnos({ user, onLogout }) {
                 value={nuevo.telefono}
                 onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })}
               />
-
-              {/* SELECT SERVICIOS CON PRECIO AUTOMÁTICO */}
               <select
                 value={nuevo.servicio}
                 onChange={(e) => {
                   const seleccionado = servicios.find(s => s.nombre === e.target.value);
-                  setNuevo({
-                    ...nuevo,
-                    servicio: e.target.value,
-                    precio: seleccionado ? seleccionado.precio : 0,
-                  });
+                  setNuevo({ ...nuevo, servicio: e.target.value, precio: seleccionado ? seleccionado.precio : 0 });
                 }}
               >
                 <option value="">Seleccionar servicio</option>
@@ -218,85 +205,89 @@ export default function Turnos({ user, onLogout }) {
                   </option>
                 ))}
               </select>
-
               <select value={nuevo.barbero} onChange={(e) => handleBarberoChange(e.target.value)}>
                 <option value="">Seleccionar barbero</option>
                 {barberos.map((b) => (
                   <option key={b.id} value={b.nombre}>{b.nombre}</option>
                 ))}
               </select>
-
               <input
                 type="date"
                 value={nuevo.fecha}
                 onChange={(e) => setNuevo({ ...nuevo, fecha: e.target.value })}
               />
-
               <select value={nuevo.hora} onChange={(e) => setNuevo({ ...nuevo, hora: e.target.value })}>
                 <option value="">Seleccionar hora</option>
                 {horariosDisponibles.map((h) => (
                   <option key={h} value={h}>{h}</option>
                 ))}
               </select>
-
               <div style={{ gridColumn: "1 / -1" }}>
                 <button
                   style={{ width: "100%" }}
                   onClick={async () => {
                     if (!nuevo.fecha || !nuevo.hora || !nuevo.barbero || !nuevo.servicio) {
-                      mostrarToast("Completá todos los campos ⚠️", "error");
+                      mostrarToast("Completá todos los campos", "error");
                       return;
                     }
                     const disponible = await turnoDisponible(nuevo.fecha, nuevo.hora, nuevo.barbero);
                     if (!disponible) {
-                      mostrarToast("Ese horario ya está ocupado ❌", "error");
+                      mostrarToast("Ese horario ya está ocupado", "error");
                       return;
                     }
                     try {
                       const token = localStorage.getItem("token");
                       const res = await fetch(`${API}/admin/crear-turno`, {
                         method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${token}`,
-                        },
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ ...nuevo }),
                       });
                       const data = await res.json();
                       if (res.ok) {
-                        mostrarToast("Turno creado correctamente 💈", "success");
+                        mostrarToast("Turno creado correctamente");
                         traerTurnos();
                         setNuevo({ nombre: "", telefono: "", servicio: "", precio: 0, barbero: "", fecha: "", hora: "" });
                       } else {
-                        mostrarToast(data.error || "Error al crear turno ❌", "error");
+                        mostrarToast(data.error || "Error al crear turno", "error");
                       }
-                    } catch (error) {
-                      mostrarToast("Error de conexión ❌", "error");
+                    } catch {
+                      mostrarToast("Error de conexión", "error");
                     }
                   }}
                 >
-                  Crear
+                  Crear turno
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* BUSCAR */}
+        {/* BUSCAR / TABLA */}
         <div className="card">
-          <h2>🔍 Buscar turnos</h2>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
+            <Search size={14} color="#475569" />
+            <h2 style={{ margin: 0 }}>Buscar turnos</h2>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             <input
-              placeholder="Buscar cliente..."
+              placeholder="Buscar por cliente..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 160 }}
             />
             <input
               type="date"
               value={filtroFecha}
               onChange={(e) => setFiltroFecha(e.target.value)}
             />
+            {filtroFecha && (
+              <button
+                onClick={() => setFiltroFecha("")}
+                style={{ background: "#F1F5F9", color: "#475569", border: "1px solid #E2E8F0", padding: "8px 12px" }}
+              >
+                Limpiar
+              </button>
+            )}
           </div>
 
           <div className="table-container">
@@ -310,12 +301,20 @@ export default function Turnos({ user, onLogout }) {
                   <th>Fecha</th>
                   <th>Hora</th>
                   <th>Estado</th>
-                  {(user.rol === "admin" || user.rol === "superadmin") && <th>Acción</th>}
+                  {(user.rol === "admin" || user.rol === "superadmin") && <th></th>}
                 </tr>
               </thead>
               <tbody>
+                {turnosFiltrados.length === 0 && (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: "center", color: "#94A3B8", padding: "32px 0", fontStyle: "italic" }}>
+                      No hay turnos para mostrar
+                    </td>
+                  </tr>
+                )}
                 {turnosFiltrados.map((t) => (
-                  <tr key={t.id} className="group" style={{ backgroundColor: getRowColor(t.estado) }}>
+                  <tr key={t.id} className="group">
+                    {/* Nombre editable */}
                     <td>
                       {editando.id === t.id && editando.campo === "nombre" ? (
                         <input
@@ -327,20 +326,25 @@ export default function Turnos({ user, onLogout }) {
                             if (e.key === "Enter") guardarEdicion();
                             if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
                           }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: "14px" }}
+                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
                         />
                       ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {t.nombre}
                           <span
                             className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", fontSize: "12px", transition: "opacity 0.15s" }}
+                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
                             onClick={() => setEditando({ id: t.id, campo: "nombre", valor: t.nombre })}
-                          >✏️</span>
+                          >
+                            <Pencil size={11} />
+                          </span>
                         </span>
                       )}
                     </td>
-                    <td>{t.telefono}</td>
+
+                    <td style={{ color: "#475569" }}>{t.telefono}</td>
+
+                    {/* Servicio editable */}
                     <td>
                       {editando.id === t.id && editando.campo === "servicio" ? (
                         <select
@@ -360,7 +364,7 @@ export default function Turnos({ user, onLogout }) {
                             setEditando({ id: null, campo: null, valor: "" });
                             traerTurnos();
                           }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: "14px" }}
+                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
                         >
                           <option value="" disabled>{t.servicio}</option>
                           {servicios.map((s) => (
@@ -370,42 +374,37 @@ export default function Turnos({ user, onLogout }) {
                           ))}
                         </select>
                       ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {t.servicio}
                           <span
                             className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", fontSize: "12px", transition: "opacity 0.15s" }}
+                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
                             onClick={() => setEditando({ id: t.id, campo: "servicio", valor: t.servicio })}
-                          >✏️</span>
+                          >
+                            <Pencil size={11} />
+                          </span>
                         </span>
                       )}
                     </td>
-                    <td>{t.barbero}</td>
-                    <td>{t.fecha}</td>
-                    <td>{t.hora}</td>
+
+                    <td style={{ color: "#475569" }}>{t.barbero}</td>
+                    <td style={{ color: "#475569", whiteSpace: "nowrap" }}>{t.fecha}</td>
+                    <td style={{ color: "#475569" }}>{t.hora}</td>
+
+                    {/* Badge de estado — usa CSS classes del design system */}
                     <td>
                       <span
+                        className={`estado ${t.estado || "pendiente"}`}
                         onClick={() => {
                           const orden = ["pendiente", "confirmado", "completado"];
                           const index = orden.indexOf(t.estado || "pendiente");
                           cambiarEstado(t.id, orden[(index + 1) % orden.length]);
                         }}
-                        style={{
-                          background: t.estado === "pendiente" ? "#facc15"
-                            : t.estado === "confirmado" ? "#3b82f6"
-                            : t.estado === "completado" ? "#16a34a"
-                            : t.estado === "cancelado" ? "#dc2626" : "#6b7280",
-                          color: "white",
-                          padding: "4px 10px",
-                          borderRadius: "999px",
-                          fontSize: "12px",
-                          fontWeight: "600",
-                          cursor: "pointer",
-                        }}
                       >
                         {t.estado || "pendiente"}
                       </span>
                     </td>
+
                     {(user.rol === "admin" || user.rol === "superadmin") && (
                       <td>
                         <button
@@ -414,9 +413,9 @@ export default function Turnos({ user, onLogout }) {
                             traerTurnos();
                           }}
                           className="btn-delete"
-                          style={{ padding: "4px 10px" }}
+                          style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
                         >
-                          ✖
+                          <X size={13} />
                         </button>
                       </td>
                     )}

@@ -58,16 +58,52 @@ async function notificarBarbero(datos) {
     return;
   }
 
-  const mensaje = `📅 Nuevo turno asignado
+  // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+  const [y, m, d] = String(datos.fecha).split("-");
+  const fechaFormateada = `${d}/${m}/${y}`;
 
-👤 ${datos.nombre}
-✂️ ${datos.servicio}
-⏰ ${datos.hora}
-📅 ${datos.fecha}`;
+  // Hora en formato HH:mm
+  const horaFormateada = String(datos.hora).slice(0, 5);
 
-  console.log("📤 Enviando mensaje a:", telefono);
+  console.log("📤 Enviando plantilla a barbero:", telefono);
 
-  await enviarMensaje(telefono, mensaje, phone_number_id);
+  const url = `https://graph.facebook.com/v18.0/${phone_number_id}/messages`;
+
+  try {
+    await axios.post(
+      url,
+      {
+        messaging_product: "whatsapp",
+        to: telefono,
+        type: "template",
+        template: {
+          name: "nuevo_turno_barbero_v2",
+          language: { code: "es_AR" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: datos.barbero },
+                { type: "text", text: datos.nombre },
+                { type: "text", text: fechaFormateada },
+                { type: "text", text: horaFormateada },
+                { type: "text", text: datos.servicio }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    console.log("✅ Plantilla enviada al barbero:", datos.barbero);
+  } catch (error) {
+    console.error("❌ Error enviando plantilla al barbero:", error.response?.data || error.message);
+  }
 }
 
 module.exports = { enviarMensaje, notificarBarbero };

@@ -9,7 +9,18 @@
       "Bash(node --check server/routes/admin.routes.js)",
       "Bash(node --check server/routes/superadmin.routes.js)",
       "Bash(node --check server/routes/whatsapp.routes.js)",
-      "Bash(npm --prefix C:/Users/Joaco/barberia-backend run dev)"
+      "Bash(npm --prefix C:/Users/Joaco/barberia-backend run dev)",
+      "Skill(update-config)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"barbershop SaaS management dashboard professional modern dark sidebar\" --design-system -p \"BarberApp\" -f markdown)",
+      "Bash(py --version)",
+      "Bash(where python *)",
+      "Bash(where py *)",
+      "Bash(/c/Users/Joaco/AppData/Local/Programs/Python/Python313/python.exe .claude/skills/ui-ux-pro-max/scripts/search.py \"barbershop SaaS management dashboard professional modern dark sidebar\" --design-system -p \"BarberApp\" -f markdown)",
+      "Bash(/c/Users/Joaco/AppData/Local/Microsoft/WindowsApps/python.exe .claude/skills/ui-ux-pro-max/scripts/search.py \"barbershop SaaS management dashboard professional modern dark sidebar\" --design-system -p \"BarberApp\" -f markdown)",
+      "Read(//c/Users/Joaco/AppData/Local/Programs//**)",
+      "Read(//c/Users/Joaco/AppData/Local//**)",
+      "Bash(\"/c/Users/Joaco/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
+      "Bash(npm run *)"
     ]
   }
 }
