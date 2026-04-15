@@ -30,7 +30,10 @@ async function crearBarberia() {
   try {
     const res = await fetch(`${API}/superadmin/crear-barberia`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+      },
       body: JSON.stringify({ nombre, email }),
     });
     const data = await res.json();
