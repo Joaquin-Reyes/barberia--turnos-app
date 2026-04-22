@@ -78,11 +78,12 @@ function initClient(barberia_id) {
   });
 
   client.on('message', async (msg) => {
-    if (msg.fromMe || msg.isGroupMsg) return;
+    if (msg.fromMe || msg.isGroupMsg || msg.isStatus) return;
     try {
       await handleIncomingMessage(barberia_id, msg);
     } catch (err) {
       console.error(`[wwebjs] Error procesando mensaje de barberia ${barberia_id}:`, err.message);
+      console.error(err.stack);
     }
   });
 
