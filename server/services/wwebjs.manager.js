@@ -5,17 +5,21 @@ const path = require('path');
 const clients = new Map();
 
 async function initializeAllClients() {
-  const { supabaseAdmin } = require('../config/supabase');
+  try {
+    const { supabaseAdmin } = require('../config/supabase');
 
-  const { data: barberias, error } = await supabaseAdmin
-    .from('barberias')
-    .select('id')
-    .eq('whatsapp_mode', 'wwebjs');
+    const { data: barberias, error } = await supabaseAdmin
+      .from('barberias')
+      .select('id')
+      .eq('whatsapp_mode', 'wwebjs');
 
-  if (error || !barberias?.length) return;
+    if (error || !barberias?.length) return;
 
-  for (const b of barberias) {
-    initClient(b.id);
+    for (const b of barberias) {
+      initClient(b.id);
+    }
+  } catch (err) {
+    console.error('[wwebjs] Error en initializeAllClients:', err.message);
   }
 }
 
@@ -25,10 +29,22 @@ function initClient(barberia_id) {
   const clientId = `barberia_${barberia_id}`;
   const dataPath = path.join(process.cwd(), '.wwebjs_auth');
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ clientId, dataPath }),
-    puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-  });
+  let client;
+  try {
+    const puppeteerConfig = {
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    client = new Client({
+      authStrategy: new LocalAuth({ clientId, dataPath }),
+      puppeteer: puppeteerConfig
+    });
+  } catch (err) {
+    console.error(`[wwebjs] No se pudo crear el cliente para barberia ${barberia_id}:`, err.message);
+    return null;
+  }
 
   const entry = { client, qr: null, status: 'initializing' };
   clients.set(barberia_id, entry);
@@ -63,7 +79,11 @@ function initClient(barberia_id) {
 
   client.on('message', async (msg) => {
     if (msg.fromMe || msg.isGroupMsg) return;
-    await handleIncomingMessage(barberia_id, msg);
+    try {
+      await handleIncomingMessage(barberia_id, msg);
+    } catch (err) {
+      console.error(`[wwebjs] Error procesando mensaje de barberia ${barberia_id}:`, err.message);
+    }
   });
 
   client.initialize().catch((err) => {
