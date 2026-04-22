@@ -79,6 +79,7 @@ function initClient(barberia_id) {
   });
 
   client.on('message', async (msg) => {
+    console.log(`[wwebjs] msg ts=${msg.timestamp} readyAt=${entry.readyAt} fromMe=${msg.fromMe} body="${msg.body}"`);
     if (msg.fromMe || msg.isGroupMsg || msg.isStatus) return;
     if (entry.readyAt && msg.timestamp < entry.readyAt) return;
     try {

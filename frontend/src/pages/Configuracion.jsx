@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Building2, Plus, Scissors, CheckCircle2, X, Pencil, MessageCircle } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -13,6 +13,7 @@ export default function Configuracion({ user }) {
   const [toast, setToast] = useState(null);
   const [wpStatus, setWpStatus] = useState(null); // null | 'loading' | 'initializing' | 'qr_pending' | 'authenticated'
   const [wpQR, setWpQR] = useState(null);
+  const wpPollRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -80,9 +81,14 @@ export default function Configuracion({ user }) {
     }
   }
 
-  async function conectarWhatsapp() {
-    setWpStatus("loading");
-    setWpQR(null);
+  function detenerPolling() {
+    if (wpPollRef.current) {
+      clearInterval(wpPollRef.current);
+      wpPollRef.current = null;
+    }
+  }
+
+  async function consultarQR() {
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API}/admin/whatsapp/qr`, {
@@ -91,6 +97,8 @@ export default function Configuracion({ user }) {
       const data = await res.json();
       if (data.status === "authenticated") {
         setWpStatus("authenticated");
+        setWpQR(null);
+        detenerPolling();
       } else if (data.status === "qr_pending" && data.qr) {
         setWpQR(data.qr);
         setWpStatus("qr_pending");
@@ -98,10 +106,21 @@ export default function Configuracion({ user }) {
         setWpStatus(data.status || "initializing");
       }
     } catch {
+      detenerPolling();
       setWpStatus(null);
       mostrarToast("Error al conectar con WhatsApp", "error");
     }
   }
+
+  function conectarWhatsapp() {
+    detenerPolling();
+    setWpStatus("loading");
+    setWpQR(null);
+    consultarQR();
+    wpPollRef.current = setInterval(consultarQR, 3000);
+  }
+
+  useEffect(() => detenerPolling, []);
 
   /* ─── Estilos compartidos ─── */
   const topbarStyle = {
