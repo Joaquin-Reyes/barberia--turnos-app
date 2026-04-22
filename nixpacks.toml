@@ -1,29 +1,22 @@
 [phases.setup]
-nixPkgs = [
+aptPkgs = [
   "chromium",
-  "nss",
-  "nspr",
-  "atk",
-  "cups",
-  "dbus",
-  "libdrm",
-  "expat",
-  "libxcb",
-  "libxkbcommon",
-  "xorg.libX11",
-  "xorg.libXcomposite",
-  "xorg.libXdamage",
-  "xorg.libXext",
-  "xorg.libXfixes",
-  "xorg.libXrandr",
-  "mesa",
-  "pango",
-  "cairo",
-  "alsa-lib",
-  "at-spi2-atk",
-  "at-spi2-core"
+  "chromium-driver",
+  "libglib2.0-0",
+  "libnss3",
+  "libatk1.0-0",
+  "libatk-bridge2.0-0",
+  "libcups2",
+  "libdrm2",
+  "libxkbcommon0",
+  "libxcomposite1",
+  "libxdamage1",
+  "libxfixes3",
+  "libxrandr2",
+  "libgbm1",
+  "libasound2"
 ]
 
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/run/current-system/sw/bin/chromium"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
