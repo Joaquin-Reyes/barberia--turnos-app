@@ -1,5 +1,5 @@
 const { supabaseAdmin } = require("../config/supabase");
-const { enviarMensaje } = require("./whatsapp.service");
+const { enviarMensaje, asyncLocalStorage } = require("./whatsapp.service");
 
 // ==============================
 // HELPERS
@@ -178,18 +178,39 @@ async function enviarRecordatorios() {
     return;
   }
 
-  // Cache de phone_number_id por barberia_id para no repetir queries
-  const phoneNumberIdCache = {};
+  // Cache por barberia_id: { phone_number_id, whatsapp_mode }
+  const barberiaCache = {};
 
-  async function getPhoneNumberId(barberia_id) {
-    if (phoneNumberIdCache[barberia_id]) return phoneNumberIdCache[barberia_id];
+  async function getBarberiaInfo(barberia_id) {
+    if (barberiaCache[barberia_id]) return barberiaCache[barberia_id];
     const { data: barberia } = await supabaseAdmin
       .from("barberias")
-      .select("phone_number_id")
+      .select("phone_number_id, whatsapp_mode")
       .eq("id", barberia_id)
       .single();
-    phoneNumberIdCache[barberia_id] = barberia?.phone_number_id || null;
-    return phoneNumberIdCache[barberia_id];
+    barberiaCache[barberia_id] = {
+      phone_number_id: barberia?.phone_number_id || null,
+      whatsapp_mode: barberia?.whatsapp_mode || "cloud_api"
+    };
+    return barberiaCache[barberia_id];
+  }
+
+  async function enviarRecordatorio(turno, texto) {
+    const { phone_number_id, whatsapp_mode } = await getBarberiaInfo(turno.barberia_id);
+
+    if (whatsapp_mode === "wwebjs") {
+      await asyncLocalStorage.run({ mode: "wwebjs", barberia_id: turno.barberia_id }, () =>
+        enviarMensaje(turno.telefono, texto)
+      );
+      return;
+    }
+
+    // cloud_api
+    if (!phone_number_id) {
+      console.log("⚠️ Sin phone_number_id para barberia:", turno.barberia_id);
+      return;
+    }
+    await enviarMensaje(turno.telefono, texto, phone_number_id);
   }
 
   for (const turno of data) {
@@ -201,23 +222,10 @@ async function enviarRecordatorios() {
       diferencia < 25 * 60 * 60 * 1000 &&
       !turno.recordatorio_24h
     ) {
-      const phone_number_id = await getPhoneNumberId(turno.barberia_id);
-      if (!phone_number_id) {
-        console.log("⚠️ Sin phone_number_id para barberia:", turno.barberia_id);
-      } else {
-        await enviarMensaje(
-          turno.telefono,
-          `⏰ Recordatorio de turno (mañana)
-
-📅 ${turno.fecha}
-⏰ ${turno.hora}
-💈 ${turno.barbero}
-
-Te esperamos! 🔥`,
-          phone_number_id
-        );
-      }
-
+      await enviarRecordatorio(
+        turno,
+        `Recordatorio: tu turno con ${turno.barbero} es mañana ${turno.fecha} a las ${turno.hora}. Te esperamos!`
+      );
       await supabaseAdmin
         .from("turnos")
         .update({ recordatorio_24h: true })
@@ -229,23 +237,10 @@ Te esperamos! 🔥`,
       diferencia < 4 * 60 * 60 * 1000 &&
       !turno.recordatorio_3h
     ) {
-      const phone_number_id = await getPhoneNumberId(turno.barberia_id);
-      if (!phone_number_id) {
-        console.log("⚠️ Sin phone_number_id para barberia:", turno.barberia_id);
-      } else {
-        await enviarMensaje(
-          turno.telefono,
-          `🔥 Tu turno es en pocas horas
-
-📅 ${turno.fecha}
-⏰ ${turno.hora}
-💈 ${turno.barbero}
-
-¡No te lo olvides! 💈`,
-          phone_number_id
-        );
-      }
-
+      await enviarRecordatorio(
+        turno,
+        `Tu turno con ${turno.barbero} es hoy a las ${turno.hora}. No te lo olvides!`
+      );
       await supabaseAdmin
         .from("turnos")
         .update({ recordatorio_3h: true })
