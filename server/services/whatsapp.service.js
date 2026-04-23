@@ -22,6 +22,7 @@ async function enviarMensaje(numero, mensaje, phone_number_id) {
     const { getClient } = require("./wwebjs.manager");
     const entry = getClient(ctx.barberia_id);
     if (entry?.status === "authenticated") {
+      console.log(`[wwebjs] enviarMensaje → numero="${numero}"`);
       const chatId = numero.includes("@c.us") ? numero : `${numero}@c.us`;
       await entry.client.sendMessage(chatId, mensaje);
     } else {
