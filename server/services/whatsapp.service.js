@@ -15,6 +15,13 @@ async function _obtenerModo(barberia_id) {
   return data?.whatsapp_mode || "cloud_api";
 }
 
+async function _resolverChatId(client, numero) {
+  const numLimpio = String(numero).replace("@c.us", "").replace(/\D/g, "");
+  const numberId = await client.getNumberId(numLimpio);
+  if (!numberId) throw new Error(`Número no registrado en WhatsApp: ${numLimpio}`);
+  return numberId._serialized;
+}
+
 async function enviarMensaje(numero, mensaje, phone_number_id) {
   const ctx = asyncLocalStorage.getStore();
 
@@ -22,10 +29,13 @@ async function enviarMensaje(numero, mensaje, phone_number_id) {
     const { getClient } = require("./wwebjs.manager");
     const entry = getClient(ctx.barberia_id);
     if (entry?.status === "authenticated") {
-      console.log(`[wwebjs] enviarMensaje → numero="${numero}"`);
-      const numLimpio = numero.replace("@c.us", "").replace(/\D/g, "");
-      const chatId = `${numLimpio}@c.us`;
-      await entry.client.sendMessage(chatId, mensaje);
+      try {
+        console.log(`[wwebjs] enviarMensaje → numero="${numero}"`);
+        const chatId = await _resolverChatId(entry.client, numero);
+        await entry.client.sendMessage(chatId, mensaje);
+      } catch (err) {
+        console.error(`[wwebjs] enviarMensaje error: ${err.message}`);
+      }
     } else {
       console.warn(`[wwebjs] Cliente no listo para barberia ${ctx.barberia_id}, mensaje no enviado`);
     }
@@ -67,9 +77,9 @@ async function enviarTemplateConfirmacion({ telefono, nombre, servicio, barbero,
     if (entry?.status === "authenticated") {
       const saludo = nombre ? `Hola ${nombre}! ` : "Hola! ";
       const msg = `${saludo}Tu turno con ${barbero} está confirmado para el ${fecha} a las ${horario}. Servicio: ${servicio}. Total: $${precio}`;
-      const telLimpio = String(telefono).replace(/\D/g, "");
-      await entry.client.sendMessage(`${telLimpio}@c.us`, msg);
-      console.log("✅ Confirmación wwebjs enviada a", telLimpio);
+      const chatId = await _resolverChatId(entry.client, telefono);
+      await entry.client.sendMessage(chatId, msg);
+      console.log("✅ Confirmación wwebjs enviada a", telefono);
     } else {
       console.warn(`[wwebjs] Cliente no listo para barberia ${barberia_id}, confirmación no enviada`);
     }
@@ -155,8 +165,8 @@ async function notificarBarbero(datos) {
         const fechaFormateada = `${d}/${m}/${y}`;
         const horaFormateada = String(datos.hora).slice(0, 5);
         const msg = `Nuevo turno!\n\nBarbero: ${datos.barbero}\nCliente: ${datos.nombre}\nFecha: ${fechaFormateada}\nHora: ${horaFormateada}\nServicio: ${datos.servicio}`;
-        const telBarberoLimpio = String(telefonoBarbero).replace(/\D/g, "");
-        await entry.client.sendMessage(`${telBarberoLimpio}@c.us`, msg);
+        const chatId = await _resolverChatId(entry.client, telefonoBarbero);
+        await entry.client.sendMessage(chatId, msg);
         console.log("✅ Notificación wwebjs enviada al barbero:", datos.barbero);
       } else {
         console.warn(`[notificarBarbero] Cliente no listo para barberia ${datos.barberia_id}, notificación no enviada`);
