@@ -214,7 +214,7 @@ async function enviarRecordatorios() {
   }
 
   for (const turno of data) {
-    const fechaTurno = new Date(`${turno.fecha}T${turno.hora}`);
+    const fechaTurno = new Date(`${turno.fecha}T${turno.hora}-03:00`);
     const diferencia = fechaTurno - ahora;
 
     if (
@@ -222,9 +222,12 @@ async function enviarRecordatorios() {
       diferencia < 25 * 60 * 60 * 1000 &&
       !turno.recordatorio_24h
     ) {
+      const [y, m, d] = String(turno.fecha).split("-");
+      const fechaFmt = `${d}/${m}/${y}`;
+      const horaFmt = String(turno.hora).slice(0, 5);
       await enviarRecordatorio(
         turno,
-        `Recordatorio: tu turno con ${turno.barbero} es mañana ${turno.fecha} a las ${turno.hora}. Te esperamos!`
+        `⏰ *Recordatorio de turno*\n\n💈 Barbero: ${turno.barbero}\n📅 Mañana ${fechaFmt} a las ${horaFmt}\n\n¡Te esperamos! 🙌`
       );
       await supabaseAdmin
         .from("turnos")
@@ -237,9 +240,10 @@ async function enviarRecordatorios() {
       diferencia < 4 * 60 * 60 * 1000 &&
       !turno.recordatorio_3h
     ) {
+      const horaFmt3 = String(turno.hora).slice(0, 5);
       await enviarRecordatorio(
         turno,
-        `Tu turno con ${turno.barbero} es hoy a las ${turno.hora}. No te lo olvides!`
+        `🚨 *Tu turno es en 3 horas*\n\n💈 Barbero: ${turno.barbero}\n🕐 Hoy a las ${horaFmt3}\n\n¡No te lo olvides! ✂️`
       );
       await supabaseAdmin
         .from("turnos")
