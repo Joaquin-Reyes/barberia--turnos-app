@@ -216,21 +216,31 @@ export default function Turnos({ user, onLogout }) {
                 value={nuevo.fecha}
                 onChange={(e) => setNuevo({ ...nuevo, fecha: e.target.value })}
               />
-              <select value={nuevo.hora} onChange={(e) => setNuevo({ ...nuevo, hora: e.target.value })}>
-                <option value="">Seleccionar hora</option>
-                {horariosDisponibles.map((h) => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
-              </select>
+              {nuevo.barbero ? (
+                <select value={nuevo.hora} onChange={(e) => setNuevo({ ...nuevo, hora: e.target.value })}>
+                  <option value="">Seleccionar hora</option>
+                  {horariosDisponibles.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="time"
+                  value={nuevo.hora}
+                  onChange={(e) => setNuevo({ ...nuevo, hora: e.target.value })}
+                />
+              )}
               <div style={{ gridColumn: "1 / -1" }}>
                 <button
                   style={{ width: "100%" }}
                   onClick={async () => {
-                    if (!nuevo.fecha || !nuevo.hora || !nuevo.barbero || !nuevo.servicio) {
-                      mostrarToast("Completá todos los campos", "error");
+                    if (!nuevo.fecha || !nuevo.hora) {
+                      mostrarToast("Completá fecha y hora", "error");
                       return;
                     }
-                    const disponible = await turnoDisponible(nuevo.fecha, nuevo.hora, nuevo.barbero);
+                    const disponible = nuevo.barbero
+                      ? await turnoDisponible(nuevo.fecha, nuevo.hora, nuevo.barbero)
+                      : true;
                     if (!disponible) {
                       mostrarToast("Ese horario ya está ocupado", "error");
                       return;

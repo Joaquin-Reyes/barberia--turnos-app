@@ -142,6 +142,7 @@ async function pedirServicio(from, barberia_id, usuario) {
     const precio = servicios[i]?.precio ? ` — $${servicios[i].precio}` : "";
     texto += `${emojis[i] || `${i+1}.`} ${s}${precio}\n`;
   });
+  texto += `${emojis[lista.length] || `${lista.length+1}.`} No sé todavía\n`;
 
   return await enviarMensaje(from, texto);
 }
@@ -165,6 +166,15 @@ async function pedirFecha(from) {
 }
 
 async function mostrarHorarios(from, usuario, barberia_id) {
+  if (!usuario.barbero || usuario.barbero === "Cualquiera") {
+    usuario.estado = "horario";
+    usuario.horariosDisponibles = null;
+    return await enviarMensaje(
+      from,
+      `⏰ ¿A qué hora querés el turno?\n\nEscribí el horario que preferís 👇\nEj: *10:00*, *14hs*`
+    );
+  }
+
   const horarios = await obtenerHorariosDisponibles(
     usuario.barbero,
     barberia_id,
@@ -192,10 +202,14 @@ async function mostrarHorarios(from, usuario, barberia_id) {
 
 async function mostrarConfirmacion(from, usuario) {
   const precioTexto = usuario.precio ? `\n💵 Precio: $${usuario.precio}` : "";
+  const servicioTexto = usuario.servicio ? `✂️ ${usuario.servicio}` : "✂️ Sin definir";
+  const barberoTexto = usuario.barbero && usuario.barbero !== "Cualquiera"
+    ? `💈 ${usuario.barbero}`
+    : "💈 Sin preferencia";
   return await enviarMensaje(from, `📋 Resumen de tu turno:
 
-✂️ ${usuario.servicio}
-💈 ${usuario.barbero}
+${servicioTexto}
+${barberoTexto}
 📅 ${fechaLegible(usuario.fecha)}
 ⏰ ${usuario.horario}${precioTexto}
 
@@ -263,7 +277,9 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
 
     let texto = "📅 Tus turnos:\n\n";
     turnos.forEach((t, i) => {
-      texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero}\n✂️ ${t.servicio}\n\n`;
+      const b = t.barbero || "Sin asignar";
+      const s = t.servicio || "Sin definir";
+      texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${b}\n✂️ ${s}\n\n`;
     });
     return await enviarMensaje(from, texto);
   }
@@ -280,7 +296,7 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
 
     let texto = "🗑️ ¿Cuál turno querés cancelar?\n\n";
     turnos.forEach((t, i) => {
-      texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero}\n✂️ ${t.servicio}\n\n`;
+      texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero || "Sin asignar"}\n✂️ ${t.servicio || "Sin definir"}\n\n`;
     });
     return await enviarMensaje(from, texto);
   }
@@ -385,7 +401,7 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
       }
       let texto = "📅 Tus turnos:\n\n";
       turnos.forEach((t, i) => {
-        texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero}\n✂️ ${t.servicio}\n\n`;
+        texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero || "Sin asignar"}\n✂️ ${t.servicio || "Sin definir"}\n\n`;
       });
       return await enviarMensaje(from, texto);
     }
@@ -398,7 +414,7 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
       usuario.estado = "cancelar";
       let texto = "🗑️ ¿Cuál turno querés cancelar?\n\n";
       turnos.forEach((t, i) => {
-        texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero}\n✂️ ${t.servicio}\n\n`;
+        texto += `${i + 1}️⃣ ${fechaLegible(t.fecha)} - ${String(t.hora).slice(0,5)}\n💈 ${t.barbero || "Sin asignar"}\n✂️ ${t.servicio || "Sin definir"}\n\n`;
       });
       return await enviarMensaje(from, texto);
     }
@@ -418,8 +434,8 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
       `⚠️ ¿Seguro que querés cancelar este turno?
 
 📅 ${fechaLegible(turno.fecha)} - ${String(turno.hora).slice(0,5)}
-💈 ${turno.barbero}
-✂️ ${turno.servicio}
+💈 ${turno.barbero || "Sin asignar"}
+✂️ ${turno.servicio || "Sin definir"}
 
 1️⃣ Sí, cancelar
 2️⃣ No, volver`
@@ -451,8 +467,11 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
     if (num >= 1 && num <= lista.length) {
       usuario.servicio = lista[num - 1];
       usuario.precio = data[num - 1]?.precio || 0;
+    } else if (num === lista.length + 1) {
+      usuario.servicio = null;
+      usuario.precio = 0;
     } else {
-      return await enviarMensaje(from, `Elegí un número del 1 al ${lista.length}`);
+      return await enviarMensaje(from, `Elegí un número del 1 al ${lista.length + 1}`);
     }
 
     usuario.estado = "barbero";
@@ -504,7 +523,7 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
       return await enviarMensaje(from, `❌ No entendí el horario. Escribí algo como *10:00* o *14hs*.`);
     }
 
-    if (!disponibles.includes(horaIngresada)) {
+    if (disponibles && !disponibles.includes(horaIngresada)) {
       const lista = disponibles.map(h => `• ${h}`).join("\n");
       return await enviarMensaje(
         from,
@@ -539,23 +558,25 @@ async function _procesarMensajeInterno({ from, text, cliente, barberia, barberia
       });
 
       if (ok) {
-        await notificarBarbero({
-          nombre: usuario.nombreCliente,
-          telefono: from,
-          servicio: usuario.servicio,
-          barbero: usuario.barbero,
-          fecha: usuario.fecha,
-          hora: usuario.horario,
-          barberia_id
-        });
+        if (usuario.barbero && usuario.barbero !== "Cualquiera") {
+          await notificarBarbero({
+            nombre: usuario.nombreCliente,
+            telefono: from,
+            servicio: usuario.servicio,
+            barbero: usuario.barbero,
+            fecha: usuario.fecha,
+            hora: usuario.horario,
+            barberia_id
+          });
+        }
 
         const precioTexto = usuario.precio ? `\n💵 $${usuario.precio}` : "";
         usuario.estado = "inicio";
 
         return await enviarMensaje(from, `🔥 ¡Turno confirmado!
 
-✂️ ${usuario.servicio}
-💈 ${usuario.barbero}
+✂️ ${usuario.servicio || "Sin definir"}
+💈 ${usuario.barbero && usuario.barbero !== "Cualquiera" ? usuario.barbero : "Sin asignar"}
 📅 ${fechaLegible(usuario.fecha)}
 ⏰ ${usuario.horario}${precioTexto}
 

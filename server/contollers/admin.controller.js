@@ -13,7 +13,7 @@ async function crearTurno(req, res) {
   const barberia_id = req.user.barberia_id;
   const horaNormalizada = formatearHora(hora);
 
-  if (!nombre || !telefono || !servicio || !barbero || !fecha || !hora) {
+  if (!nombre || !telefono || !fecha || !hora) {
     return res.status(400).json({ error: "Faltan datos" });
   }
 
@@ -52,30 +52,30 @@ async function crearTurno(req, res) {
       return res.status(500).json({ error: "Error guardando" });
     }
 
-    const { data: barberoData, error: errorBarbero } = await supabaseAdmin
-      .from("barberos")
-      .select("telefono, nombre")
-      .ilike("nombre", barbero)
-      .eq("barberia_id", barberia_id)
-      .maybeSingle();
+    if (barbero) {
+      const { data: barberoData, error: errorBarbero } = await supabaseAdmin
+        .from("barberos")
+        .select("telefono, nombre")
+        .ilike("nombre", barbero)
+        .eq("barberia_id", barberia_id)
+        .maybeSingle();
 
-    console.log("📱 Telefono barbero encontrado:", barberoData?.telefono);
+      console.log("📱 Telefono barbero encontrado:", barberoData?.telefono);
 
-    if (errorBarbero) {
-      console.log("❌ Error obteniendo barbero:", errorBarbero);
+      if (errorBarbero) {
+        console.log("❌ Error obteniendo barbero:", errorBarbero);
+      }
+
+      await notificarBarbero({
+        nombre,
+        servicio,
+        barbero,
+        fecha,
+        hora,
+        telefono: barberoData?.telefono,
+        barberia_id
+      });
     }
-
-    console.log("🧪 Llamando a notificarBarbero desde ADMIN");
-
-    await notificarBarbero({
-      nombre,
-      servicio,
-      barbero,
-      fecha,
-      hora,
-      telefono: barberoData?.telefono,
-      barberia_id
-    });
 
     if (telefono) {
       try {
