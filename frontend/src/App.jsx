@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import SetPassword from './pages/SetPassword'
@@ -10,18 +10,49 @@ import Facturacion from './pages/Facturacion'
 import Configuracion from './pages/Configuracion'
 import Cola from './pages/Cola'
 import PanelBarbero from './pages/PanelBarbero'
+import { supabase } from './lib/supabase'
 import './styles.css'
 
 function App() {
   const [user, setUser] = useState(null)
+  const [cargando, setCargando] = useState(true)
 
   const hash = new URLSearchParams(window.location.hash.substring(1))
-  if (hash.get('type') === 'invite' && hash.get('access_token')) {
+  const esInvite = hash.get('type') === 'invite' && hash.get('access_token')
+
+  useEffect(() => {
+    if (esInvite) {
+      setCargando(false)
+      return
+    }
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        setCargando(false)
+        return
+      }
+
+      const { data: usuarioDB } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      if (usuarioDB) setUser(usuarioDB)
+      setCargando(false)
+    })
+  }, [])
+
+  if (esInvite || window.location.pathname === '/set-password') {
     return <SetPassword />
   }
 
-  if (window.location.pathname === '/set-password') {
-    return <SetPassword />
+  if (cargando) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#475569', fontSize: 14 }}>Cargando...</p>
+      </div>
+    )
   }
 
   if (!user) {
