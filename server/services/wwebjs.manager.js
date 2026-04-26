@@ -82,7 +82,8 @@ function initClient(barberia_id) {
 
   client.initialize().catch((err) => {
     console.error(`[wwebjs] Error init barberia ${barberia_id}:`, err.message);
-    clients.delete(barberia_id);
+    entry.status = 'error';
+    entry.errorMessage = err.message;
   });
 
   return entry;

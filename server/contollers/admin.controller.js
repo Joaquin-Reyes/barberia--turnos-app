@@ -139,35 +139,6 @@ async function eliminarTurno(req, res) {
   res.json({ ok: true });
 }
 
-async function updateTurnoEstado(req, res) {
-  console.log("🔥 PUT /turnos funcionando");
-  try {
-    const { id } = req.params;
-    const { estado } = req.body;
-
-    if (!estado) {
-      return res.status(400).json({ error: "Falta estado" });
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("turnos")
-      .update({ estado })
-      .eq("id", id)
-      .select();
-
-    if (error) {
-      console.error("❌ Error Supabase:", error);
-      return res.status(500).json({ error });
-    }
-
-    return res.json(data);
-
-  } catch (err) {
-    console.error("💥 CRASH EN PUT:", err);
-    return res.status(500).json({ error: "Error interno" });
-  }
-}
-
 async function crearBarbero(req, res) {
   const { nombre, telefono } = req.body;
   const barberia_id = req.user.barberia_id;
@@ -244,6 +215,10 @@ async function getWhatsappQR(req, res) {
     return res.json({ status: "authenticated" });
   }
 
+  if (entry.status === "error") {
+    return res.status(503).json({ status: "error", error: entry.errorMessage || "Chromium no disponible" });
+  }
+
   if (entry.status === "qr_pending" && entry.qr) {
     const qrBase64 = await QRCode.toDataURL(entry.qr);
     return res.json({ status: "qr_pending", qr: qrBase64 });
@@ -257,7 +232,6 @@ module.exports = {
   listarTurnos,
   actualizarEstadoTurno,
   eliminarTurno,
-  updateTurnoEstado,
   crearBarbero,
   listarBarberos,
   getWhatsappQR
