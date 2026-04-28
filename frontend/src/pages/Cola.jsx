@@ -236,7 +236,7 @@ export default function Cola({ user }) {
                         <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>Libre</p>
                       )}
 
-                      {atendiendo && (
+                      {atendiendo ? (
                         <button
                           style={{
                             background: "#1d4ed8",
@@ -248,7 +248,19 @@ export default function Cola({ user }) {
                         >
                           Termine
                         </button>
-                      )}
+                      ) : colaEspera.length > 0 ? (
+                        <button
+                          style={{
+                            background: "#16a34a",
+                            padding: "7px 12px",
+                            fontSize: "12px",
+                            marginTop: "auto",
+                          }}
+                          onClick={() => terminar(b.id)}
+                        >
+                          Llamar siguiente
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}
