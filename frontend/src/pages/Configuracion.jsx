@@ -34,6 +34,9 @@ export default function Configuracion({ user }) {
       .eq("id", user.barberia_id)
       .single();
     setBarberia(data || null);
+    if (data?.whatsapp_mode === "wwebjs") {
+      consultarQR();
+    }
   }
 
   const mostrarToast = (mensaje, tipo = "success") => {
