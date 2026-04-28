@@ -1,0 +1,19 @@
+{
+  "name": "BarberApp",
+  "short_name": "BarberApp",
+  "description": "Panel de gestión para tu barbería",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
