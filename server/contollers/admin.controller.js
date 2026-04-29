@@ -205,10 +205,48 @@ async function reenviarInvitacion(req, res) {
       return res.status(500).json({ error: inviteError.message });
     }
 
+    // También intentar activación directa por si el usuario ya existe en Auth
+    // (Supabase puede ignorar el invite para usuarios ya confirmados)
+    await activarBarberoDirecto({ barbero, email });
+
     res.json({ ok: true });
   } catch (err) {
     console.log("❌ Error general:", err);
     res.status(500).json({ error: "Error interno" });
+  }
+}
+
+async function activarBarberoDirecto({ barbero, email }) {
+  try {
+    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const authUser = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    if (!authUser) return;
+
+    const { data: existente } = await supabaseAdmin
+      .from("usuarios")
+      .select("id")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (existente) return; // ya activado
+
+    await supabaseAdmin.from("usuarios").insert({
+      id: authUser.id,
+      email: authUser.email,
+      rol: "barbero",
+      barberia_id: barbero.barberia_id,
+      nombre: barbero.nombre,
+      barbero_id: barbero.id,
+    });
+
+    await supabaseAdmin
+      .from("barberos")
+      .update({ usuario_id: authUser.id })
+      .eq("id", barbero.id);
+
+    console.log("✅ Activación directa exitosa para", email);
+  } catch (err) {
+    console.log("⚠️ activarBarberoDirecto falló (no crítico):", err.message);
   }
 }
 

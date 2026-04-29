@@ -53,10 +53,11 @@ export default function SetPassword() {
       return;
     }
 
-    // Solo activar cuenta si es una invitación nueva (no un reset de contraseña)
-    if (!esRecovery) {
-      // Preferir el token de la sesión post-updateUser; si es null (invite flow),
-      // usar el token original de la invitación que aún es válido.
+    // Siempre intentar activar la cuenta — activarCuenta es idempotente:
+    // si el usuario ya existe en 'usuarios', devuelve ok sin hacer nada.
+    // Esto cubre tanto el flujo invite como recovery (Supabase puede enviar
+    // recovery en lugar de invite si el usuario ya confirmó su cuenta antes).
+    {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const token = updateData?.session?.access_token
         || currentSession?.access_token
@@ -70,8 +71,11 @@ export default function SetPassword() {
         if (!activarRes.ok) {
           const body = await activarRes.json().catch(() => ({}));
           console.error("❌ activar failed:", body);
-          setError("No se pudo activar la cuenta. Pedile al admin que reenvíe la invitación.");
-          return;
+          // Solo bloquear si NO es un reset de contraseña para un usuario ya activo
+          if (!esRecovery) {
+            setError("No se pudo activar la cuenta. Pedile al admin que reenvíe la invitación.");
+            return;
+          }
         }
       }
     }
