@@ -122,9 +122,9 @@ function Dashboard({ user, onLogout }) {
           <button
             onClick={() => setDrawerOpen(true)}
             className="flex items-center justify-center rounded-lg bg-transparent"
-            style={{ width: 36, height: 36, border: 'none', color: '#475569' }}
+            style={{ width: 44, height: 44, border: 'none', color: '#0F172A' }}
           >
-            <Menu size={22} />
+            <Menu size={30} />
           </button>
         </div>
 
