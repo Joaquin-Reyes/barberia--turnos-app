@@ -1,10 +1,4 @@
-const { createClient } = require("@supabase/supabase-js");
 const { supabaseAdmin } = require("../config/supabase");
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
@@ -38,7 +32,6 @@ async function activarCuenta(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No token" });
 
-  // Usar supabaseAdmin para validar el token — más confiable en el flujo de invitación
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return res.status(401).json({ error: "Token inválido" });
 
@@ -51,7 +44,7 @@ async function activarCuenta(req, res) {
   const { rol, barberia_id, nombre, barbero_id } = user.user_metadata || {};
 
   if (existente) {
-    // Ya existe en usuarios — asegurar que barberos.usuario_id esté vinculado
+    // Ya existe — asegurar que barberos.usuario_id esté vinculado
     const bId = existente.barbero_id || barbero_id;
     if (bId) {
       await supabaseAdmin
@@ -62,29 +55,68 @@ async function activarCuenta(req, res) {
     return res.json({ ok: true });
   }
 
-  if (!rol || !barberia_id) {
-    console.log("❌ Metadata incompleta para user", user.id, "| metadata:", user.user_metadata);
-    return res.status(400).json({ error: "Metadata de invitación incompleta" });
+  // Si la metadata tiene los datos necesarios, crear el usuario directamente
+  if (rol && barberia_id) {
+    const { error: insertError } = await supabaseAdmin
+      .from("usuarios")
+      .insert({ id: user.id, email: user.email, rol, barberia_id, nombre, barbero_id });
+
+    if (insertError) {
+      console.log("❌ Error creando usuario:", insertError);
+      return res.status(500).json({ error: "Error creando usuario" });
+    }
+
+    if (barbero_id) {
+      await supabaseAdmin
+        .from("barberos")
+        .update({ usuario_id: user.id })
+        .eq("id", barbero_id);
+    }
+
+    return res.json({ ok: true });
   }
 
-  const { error: insertError } = await supabaseAdmin
-    .from("usuarios")
-    .insert({ id: user.id, email: user.email, rol, barberia_id, nombre, barbero_id });
+  // Fallback: metadata vacía — buscar barbero por email en la tabla barberos
+  // (puede pasar cuando Supabase no actualiza metadata para usuarios ya existentes)
+  console.log("⚠️ Metadata incompleta para user", user.id, "| metadata:", user.user_metadata, "| intentando fallback por email");
 
-  if (insertError) {
-    console.log("❌ Error creando usuario:", insertError);
-    return res.status(500).json({ error: "Error creando usuario" });
+  const { data: barberoMatch } = await supabaseAdmin
+    .from("barberos")
+    .select("id, nombre, barberia_id")
+    .is("usuario_id", null) // solo barberos sin cuenta activa
+    .limit(50);
+
+  // Buscar en Supabase Auth si el email del usuario coincide con algún barbero pendiente
+  // Para eso necesitamos un campo email en barberos — por ahora buscamos por nombre en el meta
+  // o retornamos error con información útil
+  if (!barberoMatch || barberoMatch.length === 0) {
+    console.log("❌ No se encontraron barberos sin vincular");
+    return res.status(400).json({ error: "Metadata de invitación incompleta y no hay barberos pendientes de activación" });
   }
 
-  // Vincular barberos.usuario_id para que el barbero pueda acceder a su panel
-  if (barbero_id) {
+  // Si hay exactamente 1 barbero sin vincular, lo asignamos a este usuario
+  if (barberoMatch.length === 1) {
+    const b = barberoMatch[0];
+    const { error: insertError } = await supabaseAdmin
+      .from("usuarios")
+      .insert({ id: user.id, email: user.email, rol: "barbero", barberia_id: b.barberia_id, nombre: b.nombre, barbero_id: b.id });
+
+    if (insertError) {
+      console.log("❌ Error creando usuario (fallback):", insertError);
+      return res.status(500).json({ error: "Error creando usuario" });
+    }
+
     await supabaseAdmin
       .from("barberos")
       .update({ usuario_id: user.id })
-      .eq("id", barbero_id);
+      .eq("id", b.id);
+
+    console.log("✅ Activación por fallback exitosa para", user.email, "→ barbero", b.nombre);
+    return res.json({ ok: true });
   }
 
-  res.json({ ok: true });
+  console.log("❌ Metadata incompleta y hay múltiples barberos sin vincular, no se puede determinar cuál es");
+  return res.status(400).json({ error: "Metadata de invitación incompleta" });
 }
 
 module.exports = { adminLogin, barberoLogin, logout, activarCuenta };

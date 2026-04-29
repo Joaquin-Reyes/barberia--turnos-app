@@ -14,11 +14,11 @@ async function authMiddleware(req, res, next) {
       return res.status(401).json({ error: "No token" });
     }
 
-    // 🔥 Obtener usuario desde Supabase Auth
+    // Usar supabaseAdmin para validar el token con mayor confiabilidad
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser(token);
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !user) {
       return res.status(401).json({ error: "Token inválido" });
