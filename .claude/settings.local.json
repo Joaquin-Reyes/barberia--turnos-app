@@ -26,7 +26,10 @@
       "Bash(node --check server/services/wwebjs.manager.js)",
       "Bash(node --check server/services/whatsapp.service.js)",
       "Bash(node --check server/services/bot.service.js)",
-      "Bash(node --check server/contollers/admin.controller.js)"
+      "Bash(node --check server/contollers/admin.controller.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

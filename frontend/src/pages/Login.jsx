@@ -81,6 +81,15 @@ export default function Login({ onLogin }) {
       }
     }
 
+    // Asegurar que barberos.usuario_id esté vinculado (idempotente)
+    if (usuarioDB.rol === "barbero") {
+      try {
+        await fetch("https://barberia-backend-production-7dae.up.railway.app/auth/activar", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+    }
     onLogin(usuarioDB);
   };
 

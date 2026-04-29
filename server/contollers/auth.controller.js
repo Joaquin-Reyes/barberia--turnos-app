@@ -43,13 +43,23 @@ async function activarCuenta(req, res) {
 
   const { data: existente } = await supabaseAdmin
     .from("usuarios")
-    .select("id")
+    .select("id, barbero_id")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (existente) return res.json({ ok: true });
-
   const { rol, barberia_id, nombre, barbero_id } = user.user_metadata || {};
+
+  if (existente) {
+    // Ya existe en usuarios — asegurar que barberos.usuario_id esté vinculado
+    const bId = existente.barbero_id || barbero_id;
+    if (bId) {
+      await supabaseAdmin
+        .from("barberos")
+        .update({ usuario_id: user.id })
+        .eq("id", bId);
+    }
+    return res.json({ ok: true });
+  }
 
   if (!rol || !barberia_id) {
     return res.status(400).json({ error: "Metadata de invitación incompleta" });
@@ -62,6 +72,14 @@ async function activarCuenta(req, res) {
   if (insertError) {
     console.log("❌ Error creando usuario:", insertError);
     return res.status(500).json({ error: "Error creando usuario" });
+  }
+
+  // Vincular barberos.usuario_id para que el barbero pueda acceder a su panel
+  if (barbero_id) {
+    await supabaseAdmin
+      .from("barberos")
+      .update({ usuario_id: user.id })
+      .eq("id", barbero_id);
   }
 
   res.json({ ok: true });
