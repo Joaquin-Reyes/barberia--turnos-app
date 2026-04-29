@@ -341,25 +341,13 @@ tr:hover td {
   display: none;
 }
 
-.navbar-mobile {
+.mobile-topbar {
   display: flex;
-  align-items: stretch;
-  min-height: 60px;
-}
-
-/* Evita que el CSS global width:100% de mobile rompa el layout flex del navbar */
-.navbar-mobile button {
-  width: auto;
-}
-
-.main-content {
-  padding-bottom: 4rem;
 }
 
 @media (min-width: 640px) {
   .sidebar-desktop { display: flex; }
-  .navbar-mobile   { display: none;  }
-  .main-content    { padding-bottom: 0; }
+  .mobile-topbar   { display: none;  }
 }
 
 /* ========================= */
@@ -434,7 +422,7 @@ tr:hover td {
 
 .toast {
   position: fixed;
-  bottom: 76px;    /* queda por encima de la navbar mobile */
+  bottom: 24px;
   right: 16px;
   padding: 11px 16px;
   border-radius: 9px;
@@ -449,9 +437,6 @@ tr:hover td {
   animation: toastIn 0.22s ease, toastOut 0.25s ease 2.75s forwards;
 }
 
-@media (min-width: 640px) {
-  .toast { bottom: 24px; }  /* desktop: no hay navbar mobile */
-}
 
 .toast.success { background: #16A34A; }
 .toast.error   { background: #DC2626; }
