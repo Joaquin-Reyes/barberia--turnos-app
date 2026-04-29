@@ -38,7 +38,8 @@ async function activarCuenta(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No token" });
 
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+  // Usar supabaseAdmin para validar el token — más confiable en el flujo de invitación
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) return res.status(401).json({ error: "Token inválido" });
 
   const { data: existente } = await supabaseAdmin
@@ -62,6 +63,7 @@ async function activarCuenta(req, res) {
   }
 
   if (!rol || !barberia_id) {
+    console.log("❌ Metadata incompleta para user", user.id, "| metadata:", user.user_metadata);
     return res.status(400).json({ error: "Metadata de invitación incompleta" });
   }
 

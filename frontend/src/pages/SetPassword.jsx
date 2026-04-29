@@ -10,12 +10,16 @@ export default function SetPassword() {
 
   const [esRecovery, setEsRecovery] = useState(false);
 
+  const [inviteToken, setInviteToken] = useState(null);
+
   useEffect(() => {
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
     const accessToken = params.get("access_token");
     const refreshToken = params.get("refresh_token") || "";
     const type = params.get("type");
+
+    if (accessToken && type === "invite") setInviteToken(accessToken);
 
     if (!accessToken || (type !== "invite" && type !== "recovery")) {
       setTokenValido(false);
@@ -43,7 +47,7 @@ export default function SetPassword() {
       return;
     }
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { data: updateData, error } = await supabase.auth.updateUser({ password });
     if (error) {
       setError(error.message);
       return;
@@ -51,12 +55,24 @@ export default function SetPassword() {
 
     // Solo activar cuenta si es una invitación nueva (no un reset de contraseña)
     if (!esRecovery) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        await fetch("https://barberia-backend-production-7dae.up.railway.app/auth/activar", {
+      // Preferir el token de la sesión post-updateUser; si es null (invite flow),
+      // usar el token original de la invitación que aún es válido.
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const token = updateData?.session?.access_token
+        || currentSession?.access_token
+        || inviteToken;
+
+      if (token) {
+        const activarRes = await fetch("https://barberia-backend-production-7dae.up.railway.app/auth/activar", {
           method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
+        if (!activarRes.ok) {
+          const body = await activarRes.json().catch(() => ({}));
+          console.error("❌ activar failed:", body);
+          setError("No se pudo activar la cuenta. Pedile al admin que reenvíe la invitación.");
+          return;
+        }
       }
     }
 
