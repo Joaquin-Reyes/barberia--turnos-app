@@ -238,7 +238,6 @@ async function activarBarberoDirecto({ barbero, email }) {
       email: authUser.email,
       rol: "barbero",
       barberia_id: barbero.barberia_id,
-      nombre: barbero.nombre,
     });
 
     if (insertErr) {
