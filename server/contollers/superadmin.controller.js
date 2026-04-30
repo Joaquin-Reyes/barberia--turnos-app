@@ -1,5 +1,24 @@
 const { supabaseAdmin } = require("../config/supabase");
 
+async function listarBarberias(req, res) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("barberias")
+      .select("*")
+      .order("nombre", { ascending: true });
+
+    if (error) {
+      console.error("❌ Error listando barberías:", error);
+      return res.status(500).json({ error: "Error listando barberías" });
+    }
+
+    res.json(data || []);
+  } catch (err) {
+    console.error("💥 Error general listando barberías:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
+}
+
 async function crearBarberia(req, res) {
   const { nombre, email } = req.body;
 
@@ -54,4 +73,4 @@ async function crearBarberia(req, res) {
   }
 }
 
-module.exports = { crearBarberia };
+module.exports = { listarBarberias, crearBarberia };

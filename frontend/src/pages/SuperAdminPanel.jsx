@@ -21,8 +21,13 @@ export default function SuperAdminPanel({ user, onLogout }) {
   }, []);
 
   async function traerBarberias() {
-    const { data, error } = await supabase.from("barberias").select("*");
-    if (error) { console.error("Error trayendo barberías:", error); return; }
+    const res = await fetch(`${API}/superadmin/barberias`, {
+      headers: {
+        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+      },
+    });
+    const data = await res.json().catch(() => []);
+    if (!res.ok) { console.error("Error trayendo barberias:", data); return; }
     setBarberias(data || []);
   }
 
