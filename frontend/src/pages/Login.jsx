@@ -2,6 +2,23 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { Scissors } from "lucide-react";
 
+const API_URL = "https://barberia-backend-production-7dae.up.railway.app";
+
+async function activarCuenta(token) {
+  const res = await fetch(`${API_URL}/auth/activar`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const body = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(body.error || "No se pudo activar la cuenta");
+  }
+
+  return body.usuario || null;
+}
+
 export default function Login({ onLogin }) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
@@ -39,22 +56,14 @@ export default function Login({ onLogin }) {
     if (!usuarioDB) {
       // El usuario existe en Auth pero no en la tabla usuarios → intentar activar
       try {
-        const activarRes = await fetch("https://barberia-backend-production-7dae.up.railway.app/auth/activar", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (activarRes.ok) {
-          const { data: usuarioDBRetry } = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("id", data.user.id)
-            .maybeSingle();
-          if (usuarioDBRetry) {
-            onLogin(usuarioDBRetry);
-            return;
-          }
+        const usuarioActivado = await activarCuenta(token);
+        if (usuarioActivado) {
+          onLogin(usuarioActivado);
+          return;
         }
-      } catch {}
+      } catch (activarError) {
+        console.warn("No se pudo activar la cuenta desde login:", activarError);
+      }
       setError("Tu cuenta no está activada. Pedile al admin que reenvíe la invitación.");
       setLoading(false);
       return;
@@ -84,11 +93,14 @@ export default function Login({ onLogin }) {
     // Asegurar que barberos.usuario_id esté vinculado (idempotente)
     if (usuarioDB.rol === "barbero") {
       try {
-        await fetch("https://barberia-backend-production-7dae.up.railway.app/auth/activar", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {}
+        const usuarioActivado = await activarCuenta(token);
+        if (usuarioActivado) {
+          onLogin(usuarioActivado);
+          return;
+        }
+      } catch (activarError) {
+        console.warn("No se pudo refrescar la activacion del barbero:", activarError);
+      }
     }
     onLogin(usuarioDB);
   };

@@ -13,6 +13,23 @@ import PanelBarbero from './pages/PanelBarbero'
 import { supabase } from './lib/supabase'
 import './styles.css'
 
+const API_URL = 'https://barberia-backend-production-7dae.up.railway.app'
+
+async function activarCuenta(token) {
+  const res = await fetch(`${API_URL}/auth/activar`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(body.error || 'No se pudo activar la cuenta')
+  }
+
+  return body.usuario || null
+}
+
 function App() {
   const [user, setUser] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -41,7 +58,16 @@ function App() {
         .eq('id', session.user.id)
         .maybeSingle()
 
-      if (usuarioDB) setUser(usuarioDB)
+      if (usuarioDB) {
+        setUser(usuarioDB)
+      } else {
+        try {
+          const usuarioActivado = await activarCuenta(session.access_token)
+          if (usuarioActivado) setUser(usuarioActivado)
+        } catch (activarError) {
+          console.warn('No se pudo activar la cuenta desde la sesion existente:', activarError)
+        }
+      }
       setCargando(false)
     })
   }, [])
