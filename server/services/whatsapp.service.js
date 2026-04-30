@@ -75,8 +75,7 @@ async function enviarTemplateConfirmacion({ telefono, nombre, servicio, barbero,
     const { getClient } = require("./wwebjs.manager");
     const entry = getClient(barberia_id);
     if (entry?.status === "authenticated") {
-      const saludo = nombre ? `Hola ${nombre}! 👋` : "Hola! 👋";
-      const msg = `${saludo}\n\n✅ *Tu turno está confirmado*\n\n💈 Barbero: ${barbero}\n📅 Fecha: ${fecha}\n🕐 Hora: ${horario}\n✂️ Servicio: ${servicio}\n💰 Total: $${precio}\n\n¡Te esperamos!`;
+      const msg = `✅ *Tu turno está confirmado*\n\n💈 Barbero: ${barbero}\n📅 Fecha: ${fecha}\n🕐 Hora: ${horario}\n✂️ Servicio: ${servicio}\n💰 Total: $${precio}\n\n¡Te esperamos!`;
       const chatId = await _resolverChatId(entry.client, telefono);
       await entry.client.sendMessage(chatId, msg);
       console.log("✅ Confirmación wwebjs enviada a", telefono);
