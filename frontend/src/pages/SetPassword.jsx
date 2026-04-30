@@ -29,25 +29,21 @@ export default function SetPassword() {
   useEffect(() => {
     const { accessToken, refreshToken, type } = initialHash;
 
-    // Supabase puede haber procesado el hash automáticamente (detectSessionInUrl).
-    // Primero verificar si ya hay sesión activa.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setTokenValido(true);
-        return;
-      }
+    if (!accessToken || (type !== "invite" && type !== "recovery")) {
+      // Sin params de invitación — verificar si hay sesión existente
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setTokenValido(!!session);
+      });
+      return;
+    }
 
-      // Sin sesión activa: intentar setearla manualmente con los params capturados.
-      if (!accessToken || (type !== "invite" && type !== "recovery")) {
-        setTokenValido(false);
-        return;
-      }
-
-      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-        .then(({ error }) => {
-          setTokenValido(!error);
-        });
-    });
+    // Siempre llamar setSession explícitamente con el token capturado.
+    // Supabase puede haber procesado el hash automáticamente (detectSessionInUrl)
+    // pero esa sesión implícita no siempre tiene el estado correcto para updateUser.
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error }) => {
+        setTokenValido(!error);
+      });
   }, []);
 
   async function handleSubmit(e) {
