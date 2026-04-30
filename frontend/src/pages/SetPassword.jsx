@@ -8,30 +8,46 @@ export default function SetPassword() {
   const [exito, setExito] = useState(false);
   const [tokenValido, setTokenValido] = useState(null); // null = verificando
 
-  const [esRecovery, setEsRecovery] = useState(false);
-
-  const [inviteToken, setInviteToken] = useState(null);
-
-  useEffect(() => {
+  // Capturar los params del hash en el primer render sincrónico, antes de que
+  // Supabase (detectSessionInUrl) los procese y limpie el URL hash.
+  const [initialHash] = useState(() => {
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token") || "";
-    const type = params.get("type");
+    return {
+      accessToken: params.get("access_token"),
+      refreshToken: params.get("refresh_token") || "",
+      type: params.get("type"),
+    };
+  });
 
-    if (accessToken && type === "invite") setInviteToken(accessToken);
+  const [esRecovery] = useState(() => initialHash.type === "recovery");
 
-    if (!accessToken || (type !== "invite" && type !== "recovery")) {
-      setTokenValido(false);
-      return;
-    }
+  const [inviteToken] = useState(
+    () => (initialHash.type === "invite" ? initialHash.accessToken : null)
+  );
 
-    if (type === "recovery") setEsRecovery(true);
+  useEffect(() => {
+    const { accessToken, refreshToken, type } = initialHash;
 
-    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(({ error }) => {
-        setTokenValido(!error);
-      });
+    // Supabase puede haber procesado el hash automáticamente (detectSessionInUrl).
+    // Primero verificar si ya hay sesión activa.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setTokenValido(true);
+        return;
+      }
+
+      // Sin sesión activa: intentar setearla manualmente con los params capturados.
+      if (!accessToken || (type !== "invite" && type !== "recovery")) {
+        setTokenValido(false);
+        return;
+      }
+
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          setTokenValido(!error);
+        });
+    });
   }, []);
 
   async function handleSubmit(e) {

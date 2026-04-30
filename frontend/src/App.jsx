@@ -17,8 +17,11 @@ function App() {
   const [user, setUser] = useState(null)
   const [cargando, setCargando] = useState(true)
 
-  const hash = new URLSearchParams(window.location.hash.substring(1))
-  const esInvite = (hash.get('type') === 'invite' || hash.get('type') === 'recovery') && hash.get('access_token')
+  // Capturar el hash en el primer render sincrónico, antes de que Supabase lo limpie
+  const [esInvite] = useState(() => {
+    const hash = new URLSearchParams(window.location.hash.substring(1))
+    return !!(hash.get('access_token') && (hash.get('type') === 'invite' || hash.get('type') === 'recovery'))
+  })
 
   useEffect(() => {
     if (esInvite) {
