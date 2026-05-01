@@ -1,17 +1,19 @@
 const express = require("express");
 const router = express.Router();
+const authMiddleware = require("../middleware/auth");
 const { listarBarberias, crearBarberia, actualizarBarberia } = require("../contollers/superadmin.controller");
 
 function validarSuperadmin(req, res, next) {
-  const secret = req.headers["x-superadmin-secret"];
-  if (!secret || secret !== process.env.SUPERADMIN_SECRET) {
+  if (req.user?.rol !== "superadmin") {
     return res.status(403).json({ error: "Acceso denegado" });
   }
   next();
 }
 
-router.get("/barberias", validarSuperadmin, listarBarberias);
-router.post("/crear-barberia", validarSuperadmin, crearBarberia);
-router.patch("/barberias/:id", validarSuperadmin, actualizarBarberia);
+router.use(authMiddleware, validarSuperadmin);
+
+router.get("/barberias", listarBarberias);
+router.post("/crear-barberia", crearBarberia);
+router.patch("/barberias/:id", actualizarBarberia);
 
 module.exports = router;

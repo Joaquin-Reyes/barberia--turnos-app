@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getAuthToken } from "../lib/supabase";
 
 const API = "https://barberia-backend-production-7dae.up.railway.app";
 
@@ -20,25 +21,30 @@ export default function SuperAdminPanel({ user, onLogout }) {
   }, []);
 
   async function traerBarberias() {
+    const token = await getAuthToken();
     const res = await fetch(`${API}/superadmin/barberias`, {
       headers: {
-        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+        Authorization: `Bearer ${token}`,
       },
     });
     const data = await res.json().catch(() => []);
-    if (!res.ok) { console.error("Error trayendo barberias:", data); return; }
+    if (!res.ok) {
+      console.error("Error trayendo barberias:", data);
+      mostrarToast(data.error || "Error trayendo barberias", "error");
+      return;
+    }
     setBarberias(data || []);
   }
 
 async function crearBarberia() {
   if (!nombre || !email) return;
   try {
-    console.log("VITE_SUPERADMIN_SECRET:", import.meta.env.VITE_SUPERADMIN_SECRET);
+    const token = await getAuthToken();
     const res = await fetch(`${API}/superadmin/crear-barberia`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ nombre, email }),
     });
@@ -57,11 +63,12 @@ async function crearBarberia() {
 }
 
   async function toggleActiva(barberia) {
+    const token = await getAuthToken();
     const res = await fetch(`${API}/superadmin/barberias/${barberia.id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ activo: !barberia.activo }),
     });
@@ -70,11 +77,12 @@ async function crearBarberia() {
   }
 
   async function guardarWhatsapp(id) {
+    const token = await getAuthToken();
     const res = await fetch(`${API}/superadmin/barberias/${id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-superadmin-secret": import.meta.env.VITE_SUPERADMIN_SECRET,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         whatsapp_mode: whatsappForm.whatsapp_mode,
