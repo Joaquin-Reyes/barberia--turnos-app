@@ -157,6 +157,10 @@ export default function Barberos({ user }) {
     setEnviandoInvitacion(true);
     try {
       const token = await getAuthToken();
+      if (!token) {
+        mostrarToast("Sesión expirada. Volvé a iniciar sesión.", "error");
+        return;
+      }
       const res = await fetch(`${API}/admin/barberos/${modalReenvio.id}/reenviar-invitacion`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -167,8 +171,13 @@ export default function Barberos({ user }) {
         setModalReenvio(null);
         setEmailReenvio("");
       } else {
-        const data = await res.json();
-        mostrarToast(data.error || "Error al reenviar invitación", "error");
+        const data = await res.json().catch(() => ({}));
+        mostrarToast(
+          res.status === 401
+            ? "Sesión expirada. Volvé a iniciar sesión."
+            : data.error || "Error al reenviar invitación",
+          "error"
+        );
       }
     } catch {
       mostrarToast("Error de conexión", "error");

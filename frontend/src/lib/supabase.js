@@ -34,7 +34,8 @@ export async function getAuthToken() {
     localStorage.setItem("token", session.access_token);
     return session.access_token;
   }
-  return localStorage.getItem("token") ?? null;
+  localStorage.removeItem("token");
+  return null;
 }
 
 
