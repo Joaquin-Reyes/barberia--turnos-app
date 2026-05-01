@@ -161,7 +161,7 @@ async function crearBarbero(req, res) {
       return res.status(500).json({ error: "Error guardando barbero" });
     }
 
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { rol: "barbero", barberia_id, nombre, barbero_id: data.id },
     });
 
@@ -170,9 +170,95 @@ async function crearBarbero(req, res) {
       return res.json({ ...data, invite_warning: "Barbero creado pero no se pudo enviar el email de invitación" });
     }
 
+    const authUserId = inviteData?.user?.id;
+    if (authUserId) {
+      const { error: updateError } = await supabaseAdmin
+        .from("barberos")
+        .update({ usuario_id: authUserId })
+        .eq("id", data.id);
+
+      if (updateError) {
+        console.log("⚠️ No se pudo vincular usuario_id al barbero:", updateError.message);
+      } else {
+        data.usuario_id = authUserId;
+      }
+    }
+
     res.json(data);
   } catch (err) {
     console.log("❌ Error general:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
+}
+
+async function eliminarBarbero(req, res) {
+  const { id } = req.params;
+  const barberia_id = req.user.barberia_id;
+
+  if (req.user.rol !== "admin" && req.user.rol !== "superadmin") {
+    return res.status(403).json({ error: "Acceso denegado" });
+  }
+
+  try {
+    const { data: barbero, error: barberoError } = await supabaseAdmin
+      .from("barberos")
+      .select("id, usuario_id, barberia_id")
+      .eq("id", id)
+      .eq("barberia_id", barberia_id)
+      .single();
+
+    if (barberoError || !barbero) {
+      return res.status(404).json({ error: "Barbero no encontrado" });
+    }
+
+    await supabaseAdmin
+      .from("horarios_barbero")
+      .delete()
+      .eq("barbero_id", id)
+      .eq("barberia_id", barberia_id);
+
+    await supabaseAdmin
+      .from("excepciones_barbero")
+      .delete()
+      .eq("barbero_id", id)
+      .eq("barberia_id", barberia_id);
+
+    const { error: deleteBarberoError } = await supabaseAdmin
+      .from("barberos")
+      .delete()
+      .eq("id", id)
+      .eq("barberia_id", barberia_id);
+
+    if (deleteBarberoError) {
+      console.log("❌ Error eliminando barbero:", deleteBarberoError);
+      return res.status(500).json({ error: "Error eliminando barbero" });
+    }
+
+    if (barbero.usuario_id) {
+      const { error: deleteUsuarioError } = await supabaseAdmin
+        .from("usuarios")
+        .delete()
+        .eq("id", barbero.usuario_id)
+        .eq("barberia_id", barberia_id);
+
+      if (deleteUsuarioError) {
+        console.log("⚠️ Error eliminando usuario de tabla usuarios:", deleteUsuarioError.message);
+      }
+
+      const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(barbero.usuario_id);
+
+      if (deleteAuthError) {
+        console.log("⚠️ Error eliminando usuario de Auth:", deleteAuthError.message);
+        return res.json({
+          ok: true,
+          auth_warning: "Barbero eliminado, pero no se pudo eliminar el usuario de Auth",
+        });
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.log("❌ Error general eliminando barbero:", err);
     res.status(500).json({ error: "Error interno" });
   }
 }
@@ -320,6 +406,7 @@ module.exports = {
   eliminarTurno,
   crearBarbero,
   listarBarberos,
+  eliminarBarbero,
   reenviarInvitacion,
   getWhatsappQR
 };

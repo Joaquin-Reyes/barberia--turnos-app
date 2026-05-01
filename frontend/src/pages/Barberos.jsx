@@ -387,10 +387,26 @@ export default function Barberos({ user }) {
                             </button>
                             <button
                               onClick={async () => {
+                                const token = await getAuthToken();
+                                if (!token) {
+                                  mostrarToast("Sesión expirada. Volvé a iniciar sesión.", "error");
+                                  return;
+                                }
+
+                                const res = await fetch(`${API}/admin/barberos/${b.id}`, {
+                                  method: "DELETE",
+                                  headers: { Authorization: `Bearer ${token}` },
+                                });
+                                const data = await res.json().catch(() => ({}));
+
+                                if (!res.ok) {
+                                  mostrarToast(data.error || "Error al eliminar barbero", "error");
+                                  return;
+                                }
+
                                 if (barberoSeleccionado?.id === b.id) setBarberoSeleccionado(null);
-                                await supabase.from("barberos").delete().eq("id", b.id);
-                                traerBarberos();
-                                mostrarToast("Barbero eliminado");
+                                await traerBarberos();
+                                mostrarToast(data.auth_warning || "Barbero eliminado");
                               }}
                               className="btn-delete"
                               style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
