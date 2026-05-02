@@ -1,8 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Building2, Plus, Scissors, CheckCircle2, X, Pencil, MessageCircle } from "lucide-react";
-import { supabase, getAuthToken } from "../lib/supabase";
-
-const API = "https://barberia-backend-production-7dae.up.railway.app";
+import { useEffect, useState } from "react";
+import { Building2, Plus, Scissors, CheckCircle2, X, Pencil } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export default function Configuracion({ user }) {
   const [servicios, setServicios] = useState([]);
@@ -11,10 +9,6 @@ export default function Configuracion({ user }) {
   const [barberia, setBarberia] = useState(null);
   const [editando, setEditando] = useState(false);
   const [toast, setToast] = useState(null);
-  const [wpStatus, setWpStatus] = useState(null);
-  const [wpQR, setWpQR] = useState(null);
-  const [wpError, setWpError] = useState(null);
-  const wpPollRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -35,10 +29,6 @@ export default function Configuracion({ user }) {
       .eq("id", user.barberia_id)
       .single();
     setBarberia(data || null);
-    if (data?.whatsapp_mode === "wwebjs" && !wpPollRef.current) {
-      setWpStatus((prev) => prev ?? "loading");
-      consultarQR();
-    }
   }
 
   const mostrarToast = (mensaje, tipo = "success") => {
@@ -85,62 +75,6 @@ export default function Configuracion({ user }) {
       mostrarToast("Error al guardar", "error");
     }
   }
-
-  function detenerPolling() {
-    if (wpPollRef.current) {
-      clearInterval(wpPollRef.current);
-      wpPollRef.current = null;
-    }
-  }
-
-  async function consultarQR() {
-    const token = await getAuthToken();
-    if (!token) {
-      console.warn('[consultarQR] Sin sesión activa, no se puede consultar el QR');
-      detenerPolling();
-      setWpStatus(null);
-      return;
-    }
-    console.log('[consultarQR] Enviando token:', token.slice(0, 20) + '…');
-    try {
-      const res = await fetch(`${API}/admin/whatsapp/qr`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.status === "authenticated") {
-        setWpStatus("authenticated");
-        setWpQR(null);
-        setWpError(null);
-        detenerPolling();
-      } else if (data.status === "qr_pending" && data.qr) {
-        setWpQR(data.qr);
-        setWpStatus("qr_pending");
-        if (!wpPollRef.current) {
-          wpPollRef.current = setInterval(consultarQR, 3000);
-        }
-      } else {
-        setWpStatus(data.status || "initializing");
-        if (data.error) setWpError(data.error);
-        if (!wpPollRef.current) {
-          wpPollRef.current = setInterval(consultarQR, 3000);
-        }
-      }
-    } catch {
-      detenerPolling();
-      setWpStatus(null);
-      mostrarToast("Error al conectar con WhatsApp", "error");
-    }
-  }
-
-  function conectarWhatsapp() {
-    detenerPolling();
-    setWpStatus("loading");
-    setWpQR(null);
-    consultarQR();
-    wpPollRef.current = setInterval(consultarQR, 3000);
-  }
-
-  useEffect(() => detenerPolling, []);
 
   /* ─── Estilos compartidos ─── */
   const topbarStyle = {
@@ -303,84 +237,6 @@ export default function Configuracion({ user }) {
             </table>
           )}
         </div>
-
-        {/* WHATSAPP */}
-        {barberia?.whatsapp_mode === "wwebjs" && (
-          <div className="card">
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 16 }}>
-              <MessageCircle size={14} color="#475569" />
-              <h2 style={{ margin: 0 }}>WhatsApp</h2>
-            </div>
-
-            {wpStatus === null && (
-              <button
-                onClick={conectarWhatsapp}
-                style={{ background: "#16A34A", display: "flex", alignItems: "center", gap: 6 }}
-              >
-                <MessageCircle size={13} />
-                Conectar WhatsApp
-              </button>
-            )}
-
-            {wpStatus === "loading" && (
-              <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>Iniciando conexión…</p>
-            )}
-
-            {wpStatus === "initializing" && (
-              <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
-                Iniciando cliente WhatsApp, el QR aparecerá automáticamente…
-              </p>
-            )}
-
-            {wpStatus === "qr_pending" && wpQR && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
-                <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
-                  Escaneá el QR con WhatsApp en tu teléfono:
-                </p>
-                <img src={wpQR} alt="QR WhatsApp" style={{ width: 200, height: 200, borderRadius: 8, border: "1px solid #E2E8F0" }} />
-                <button
-                  onClick={conectarWhatsapp}
-                  style={{ background: "transparent", color: "#2563EB", border: "1px solid #BFDBFE", padding: "5px 12px", fontSize: 13 }}
-                >
-                  Actualizar QR
-                </button>
-              </div>
-            )}
-
-            {wpStatus === "authenticated" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8 }}>
-                <CheckCircle2 size={16} color="#16A34A" />
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#15803D" }}>WhatsApp conectado</span>
-              </div>
-            )}
-
-            {wpStatus === "disconnected" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, color: "#92400E" }}>Reconectando WhatsApp automáticamente…</span>
-                </div>
-                <button onClick={conectarWhatsapp} style={{ background: "#16A34A", display: "flex", alignItems: "center", gap: 6 }}>
-                  <MessageCircle size={13} />
-                  Reconectar ahora
-                </button>
-              </div>
-            )}
-
-            {(wpStatus === "error" || wpStatus === "auth_failure") && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, color: "#991B1B", display: "block", fontWeight: 500 }}>No se pudo conectar WhatsApp</span>
-                  {wpError && <span style={{ fontSize: 12, color: "#B91C1C", display: "block", marginTop: 4 }}>{wpError}</span>}
-                  <span style={{ fontSize: 12, color: "#B91C1C", display: "block", marginTop: 4 }}>Reintentando automáticamente…</span>
-                </div>
-                <button onClick={conectarWhatsapp} style={{ background: "#16A34A", display: "flex", alignItems: "center", gap: 6 }}>
-                  <MessageCircle size={13} />
-                  Reintentar ahora
-                </button>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* AGREGAR SERVICIO */}
         <div className="card">
