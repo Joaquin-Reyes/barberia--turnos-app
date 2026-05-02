@@ -17,13 +17,12 @@ function generarSlots(hora_inicio, hora_fin) {
   let horaActual = formatearHora(hora_inicio);
   const horaFin = formatearHora(hora_fin);
 
-  while (true) {
+  while (horaActual < horaFin) {
     slots.push(horaActual);
-    if (horaActual >= horaFin) break;
 
     const [h, m] = horaActual.split(":").map(Number);
     const d = new Date();
-    d.setHours(h, m + 60);
+    d.setHours(h, m + 30);
     horaActual = d.toTimeString().slice(0, 5);
   }
 

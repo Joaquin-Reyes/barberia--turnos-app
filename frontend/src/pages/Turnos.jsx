@@ -79,11 +79,17 @@ export default function Turnos({ user, onLogout }) {
 
   const generarHorarios = (inicio, fin) => {
     const horas = [];
-    const h1 = typeof inicio === "number" ? inicio : parseInt(inicio);
-    const h2 = typeof fin === "number" ? fin : parseInt(fin);
-    if (isNaN(h1) || isNaN(h2)) return horas;
-    for (let h = h1; h < h2; h++) {
-      horas.push(`${String(h).padStart(2, "0")}:00`);
+    const normalizar = (valor) => {
+      const [h = "0", m = "0"] = String(valor || "").split(":");
+      return Number(h) * 60 + Number(m);
+    };
+    const inicioMin = normalizar(inicio);
+    const finMin = normalizar(fin);
+    if (isNaN(inicioMin) || isNaN(finMin)) return horas;
+    for (let min = inicioMin; min < finMin; min += 30) {
+      const h = Math.floor(min / 60);
+      const m = min % 60;
+      horas.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
     return horas;
   };
@@ -94,6 +100,7 @@ export default function Turnos({ user, onLogout }) {
   };
 
   const normHora = (h) => String(h || "").slice(0, 5).replace(/^(\d):/, "0$1:");
+  const esMediaHora = (h) => ["00", "30"].includes(normHora(h).split(":")[1]);
 
   const horariosDisponibles = horarios.filter((h) =>
     !turnos.some((t) => t.fecha === nuevo.fecha && t.barbero === nuevo.barbero && normHora(t.hora) === h)
@@ -126,7 +133,31 @@ export default function Turnos({ user, onLogout }) {
   async function guardarEdicion() {
     const { id, campo, valor } = editando;
     if (!id || !campo) return;
-    await supabase.from("turnos").update({ [campo]: valor }).eq("id", id);
+    const turno = turnos.find((t) => t.id === id);
+    const valorNormalizado = campo === "hora" ? normHora(valor) : valor;
+
+    if (campo === "hora" && turno) {
+      if (!esMediaHora(valorNormalizado)) {
+        mostrarToast("Elegí una hora en punto o y media", "error");
+        return;
+      }
+      const ocupado = turnos.some((t) =>
+        t.id !== id &&
+        t.fecha === turno.fecha &&
+        t.barbero === turno.barbero &&
+        normHora(t.hora) === valorNormalizado
+      );
+      if (ocupado) {
+        mostrarToast("Ese horario ya está ocupado", "error");
+        return;
+      }
+    }
+
+    const cambios = campo === "hora"
+      ? { hora: valorNormalizado, recordatorio_24h: false, recordatorio_3h: false }
+      : { [campo]: valorNormalizado };
+
+    await supabase.from("turnos").update(cambios).eq("id", id);
     setEditando({ id: null, campo: null, valor: "" });
     traerTurnos();
   }
@@ -214,6 +245,7 @@ export default function Turnos({ user, onLogout }) {
               ) : (
                 <input
                   type="time"
+                  step="1800"
                   value={nuevo.hora}
                   onChange={(e) => setNuevo({ ...nuevo, hora: e.target.value })}
                 />
@@ -224,6 +256,10 @@ export default function Turnos({ user, onLogout }) {
                   onClick={async () => {
                     if (!nuevo.fecha || !nuevo.hora) {
                       mostrarToast("Completá fecha y hora", "error");
+                      return;
+                    }
+                    if (!esMediaHora(nuevo.hora)) {
+                      mostrarToast("Elegí una hora en punto o y media", "error");
                       return;
                     }
                     const disponible = nuevo.barbero
@@ -340,7 +376,33 @@ export default function Turnos({ user, onLogout }) {
                       )}
                     </td>
 
-                    <td className="col-mobile-hide" style={{ color: "#475569" }}>{t.telefono}</td>
+                    {/* Telefono editable */}
+                    <td className="col-mobile-hide" style={{ color: "#475569" }}>
+                      {editando.id === t.id && editando.campo === "telefono" ? (
+                        <input
+                          autoFocus
+                          value={editando.valor}
+                          onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
+                          onBlur={guardarEdicion}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") guardarEdicion();
+                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
+                          }}
+                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
+                        />
+                      ) : (
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {t.telefono || <span style={{ color: "#94A3B8" }}>Sin teléfono</span>}
+                          <span
+                            className="opacity-0 group-hover:opacity-100"
+                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
+                            onClick={() => setEditando({ id: t.id, campo: "telefono", valor: t.telefono || "" })}
+                          >
+                            <Pencil size={11} />
+                          </span>
+                        </span>
+                      )}
+                    </td>
 
                     {/* Servicio editable */}
                     <td>
@@ -424,7 +486,35 @@ export default function Turnos({ user, onLogout }) {
                       )}
                     </td>
                     <td style={{ color: "#475569", whiteSpace: "nowrap" }}>{t.fecha}</td>
-                    <td style={{ color: "#475569" }}>{t.hora}</td>
+                    {/* Hora editable */}
+                    <td style={{ color: "#475569" }}>
+                      {editando.id === t.id && editando.campo === "hora" ? (
+                        <input
+                          autoFocus
+                          type="time"
+                          step="1800"
+                          value={editando.valor}
+                          onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
+                          onBlur={guardarEdicion}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") guardarEdicion();
+                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
+                          }}
+                          style={{ width: 110, padding: "4px 6px", fontSize: 14 }}
+                        />
+                      ) : (
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {normHora(t.hora)}
+                          <span
+                            className="opacity-0 group-hover:opacity-100"
+                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
+                            onClick={() => setEditando({ id: t.id, campo: "hora", valor: normHora(t.hora) })}
+                          >
+                            <Pencil size={11} />
+                          </span>
+                        </span>
+                      )}
+                    </td>
 
                     {/* Badge de estado — usa CSS classes del design system */}
                     <td>
