@@ -3,7 +3,7 @@ const fs = require('fs');
 
 // barberia_id → { client, qr, status }
 const clients = new Map();
-const isEnabled = () => process.env.WWEBJS_ENABLED === 'true';
+const isEnabled = () => process.env.WHATSAPP_ENABLED === 'true' && process.env.WWEBJS_ENABLED === 'true';
 
 async function initializeAllClients() {
   if (!isEnabled()) {

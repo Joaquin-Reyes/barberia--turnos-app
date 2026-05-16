@@ -382,7 +382,7 @@ async function listarBarberos(req, res) {
 }
 
 async function getWhatsappQR(req, res) {
-  if (process.env.WWEBJS_ENABLED !== "true") {
+  if (process.env.WHATSAPP_ENABLED !== "true" || process.env.WWEBJS_ENABLED !== "true") {
     return res.status(503).json({
       status: "disabled",
       error: "WhatsApp Web esta deshabilitado temporalmente"

@@ -14,10 +14,6 @@ const session = require("express-session");
 const path = require("path");
 
 const authMiddleware = require("./middleware/auth");
-const { enviarRecordatorios } = require("./services/agenda.service");
-const { initializeAllClients } = require("./services/wwebjs.manager");
-
-
 const authRoutes = require("./routes/auth.routes");
 const adminRoutes = require("./routes/admin.routes");
 const superadminRoutes = require("./routes/superadmin.routes");
@@ -88,20 +84,5 @@ app.use((req, res) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🔥 Servidor corriendo en puerto ${PORT}`);
 
-  initializeAllClients().catch((err) =>
-    console.error("[wwebjs] Error inicializando clientes:", err.message)
-  );
 });
 
-// ==============================
-// CRON RECORDATORIOS (1 HORA)
-// ==============================
-
-setInterval(async () => {
-  try {
-    console.log("⏳ Revisando recordatorios...");
-    await enviarRecordatorios();
-  } catch (error) {
-    console.error("❌ Error en recordatorios:", error);
-  }
-}, 60 * 60 * 1000);

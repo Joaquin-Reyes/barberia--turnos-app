@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, Pencil, X } from "lucide-react";
+import { Check, Plus, Search, Pencil, X } from "lucide-react";
 import { supabase, turnoDisponible, getAuthToken } from "../lib/supabase";
 
 const API = "https://barberia-backend-production-7dae.up.railway.app";
@@ -15,7 +15,7 @@ export default function Turnos({ user, onLogout }) {
   });
   const [busqueda, setBusqueda] = useState("");
   const [filtroFecha, setFiltroFecha] = useState("");
-  const [editando, setEditando] = useState({ id: null, campo: null, valor: "" });
+  const [editando, setEditando] = useState({ id: null, valores: null });
 
   useEffect(() => {
     if (!user) return;
@@ -124,41 +124,90 @@ export default function Turnos({ user, onLogout }) {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const puedeAdministrarTurnos = user.rol === "admin" || user.rol === "superadmin";
+
   const turnosFiltrados = turnos.filter((t) =>
     (user.rol === "admin" || user.rol === "superadmin" || t.barbero === user.nombre) &&
     t.nombre.toLowerCase().includes(busqueda.toLowerCase()) &&
     (filtroFecha ? t.fecha === filtroFecha : true)
   );
 
-  async function guardarEdicion() {
-    const { id, campo, valor } = editando;
-    if (!id || !campo) return;
-    const turno = turnos.find((t) => t.id === id);
-    const valorNormalizado = campo === "hora" ? normHora(valor) : valor;
+  function iniciarEdicionFila(turno) {
+    setEditando({
+      id: turno.id,
+      valores: {
+        nombre: turno.nombre || "",
+        telefono: turno.telefono || "",
+        servicio: turno.servicio || "",
+        barbero: turno.barbero || "",
+        fecha: turno.fecha || "",
+        hora: normHora(turno.hora),
+        estado: turno.estado || "pendiente",
+      },
+    });
+  }
 
-    if (campo === "hora" && turno) {
-      if (!esMediaHora(valorNormalizado)) {
-        mostrarToast("Elegí una hora en punto o y media", "error");
-        return;
-      }
-      const ocupado = turnos.some((t) =>
-        t.id !== id &&
-        t.fecha === turno.fecha &&
-        t.barbero === turno.barbero &&
-        normHora(t.hora) === valorNormalizado
-      );
-      if (ocupado) {
-        mostrarToast("Ese horario ya está ocupado", "error");
-        return;
-      }
+  function actualizarEdicion(campo, valor) {
+    setEditando((actual) => ({
+      ...actual,
+      valores: { ...actual.valores, [campo]: valor },
+    }));
+  }
+
+  async function guardarEdicionFila() {
+    const { id, valores } = editando;
+    if (!id || !valores) return;
+    const turno = turnos.find((t) => t.id === id);
+    const horaNormalizada = normHora(valores.hora);
+
+    if (!valores.nombre.trim() || !valores.fecha || !horaNormalizada) {
+      mostrarToast("Completa nombre, fecha y hora", "error");
+      return;
     }
 
-    const cambios = campo === "hora"
-      ? { hora: valorNormalizado, recordatorio_24h: false, recordatorio_3h: false }
-      : { [campo]: valorNormalizado };
+    if (!esMediaHora(horaNormalizada)) {
+      mostrarToast("Elegi una hora en punto o y media", "error");
+      return;
+    }
 
-    await supabase.from("turnos").update(cambios).eq("id", id);
-    setEditando({ id: null, campo: null, valor: "" });
+    const ocupado = turnos.some((t) =>
+      t.id !== id &&
+      t.fecha === valores.fecha &&
+      t.barbero === valores.barbero &&
+      normHora(t.hora) === horaNormalizada
+    );
+    if (ocupado) {
+      mostrarToast("Ese horario ya esta ocupado", "error");
+      return;
+    }
+
+    const servicioSeleccionado = servicios.find((s) => s.nombre === valores.servicio);
+    const cambioAgenda = turno && (
+      turno.fecha !== valores.fecha ||
+      turno.barbero !== valores.barbero ||
+      normHora(turno.hora) !== horaNormalizada
+    );
+
+    const cambios = {
+      nombre: valores.nombre.trim(),
+      telefono: valores.telefono.trim(),
+      servicio: valores.servicio,
+      precio: servicioSeleccionado ? servicioSeleccionado.precio : turno?.precio || 0,
+      barbero: valores.barbero,
+      fecha: valores.fecha,
+      hora: horaNormalizada,
+      estado: valores.estado,
+      ...(cambioAgenda ? { recordatorio_24h: false, recordatorio_3h: false } : {}),
+    };
+
+    const { error } = await supabase.from("turnos").update(cambios).eq("id", id);
+    if (error) {
+      mostrarToast("No se pudo guardar el turno", "error");
+      return;
+    }
+
+    mostrarToast("Turno actualizado");
+    setEditando({ id: null, valores: null });
     traerTurnos();
   }
 
@@ -172,7 +221,7 @@ export default function Turnos({ user, onLogout }) {
 
       {toast && <div className={`toast ${toast.tipo}`}>{toast.mensaje}</div>}
 
-      {/* ─── TOPBAR ─── */}
+      {/* TOPBAR */}
       <div className="topbar" style={{ position: "sticky", top: 0, zIndex: 10 }}>
         <div>
           <h1 style={{ fontSize: 15, fontWeight: 600, margin: 0, letterSpacing: "-0.02em", color: "#0F172A" }}>
@@ -189,7 +238,7 @@ export default function Turnos({ user, onLogout }) {
         </div>
       </div>
 
-      {/* ─── CONTENIDO ─── */}
+      {/* CONTENIDO */}
       <div className="page-content" style={{ flex: 1 }}>
 
         {/* CREAR TURNO */}
@@ -206,7 +255,7 @@ export default function Turnos({ user, onLogout }) {
                 onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
               />
               <input
-                placeholder="Teléfono"
+                placeholder="Telefono"
                 value={nuevo.telefono}
                 onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })}
               />
@@ -220,7 +269,7 @@ export default function Turnos({ user, onLogout }) {
                 <option value="">Seleccionar servicio</option>
                 {servicios.map((s) => (
                   <option key={s.id} value={s.nombre}>
-                    {s.nombre} — ${s.precio.toLocaleString("es-AR")}
+                    {s.nombre} - ${s.precio.toLocaleString("es-AR")}
                   </option>
                 ))}
               </select>
@@ -255,18 +304,18 @@ export default function Turnos({ user, onLogout }) {
                   style={{ width: "100%" }}
                   onClick={async () => {
                     if (!nuevo.fecha || !nuevo.hora) {
-                      mostrarToast("Completá fecha y hora", "error");
+                      mostrarToast("Completa fecha y hora", "error");
                       return;
                     }
                     if (!esMediaHora(nuevo.hora)) {
-                      mostrarToast("Elegí una hora en punto o y media", "error");
+                      mostrarToast("Elegi una hora en punto o y media", "error");
                       return;
                     }
                     const disponible = nuevo.barbero
                       ? await turnoDisponible(nuevo.fecha, nuevo.hora, nuevo.barbero)
                       : true;
                     if (!disponible) {
-                      mostrarToast("Ese horario ya está ocupado", "error");
+                      mostrarToast("Ese horario ya esta ocupado", "error");
                       return;
                     }
                     try {
@@ -285,7 +334,7 @@ export default function Turnos({ user, onLogout }) {
                         mostrarToast(data.error || "Error al crear turno", "error");
                       }
                     } catch {
-                      mostrarToast("Error de conexión", "error");
+                      mostrarToast("Error de conexion", "error");
                     }
                   }}
                 >
@@ -329,7 +378,7 @@ export default function Turnos({ user, onLogout }) {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th className="col-mobile-hide">Teléfono</th>
+                  <th className="col-mobile-hide">Telefono</th>
                   <th>Servicio</th>
                   <th>Barbero</th>
                   <th>Fecha</th>
@@ -346,206 +395,165 @@ export default function Turnos({ user, onLogout }) {
                     </td>
                   </tr>
                 )}
-                {turnosFiltrados.map((t) => (
-                  <tr key={t.id} className="group">
-                    {/* Nombre editable */}
-                    <td>
-                      {editando.id === t.id && editando.campo === "nombre" ? (
-                        <input
-                          autoFocus
-                          value={editando.valor}
-                          onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
-                          onBlur={guardarEdicion}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") guardarEdicion();
-                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
-                          }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
-                        />
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {t.nombre}
-                          <span
-                            className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
-                            onClick={() => setEditando({ id: t.id, campo: "nombre", valor: t.nombre })}
-                          >
-                            <Pencil size={11} />
-                          </span>
-                        </span>
-                      )}
-                    </td>
+                {turnosFiltrados.map((t) => {
+                  const enEdicion = editando.id === t.id;
+                  const valores = enEdicion ? editando.valores : null;
+                  const inputStyle = { width: "100%", minWidth: 110, padding: "6px 8px", fontSize: 14 };
 
-                    {/* Telefono editable */}
-                    <td className="col-mobile-hide" style={{ color: "#475569" }}>
-                      {editando.id === t.id && editando.campo === "telefono" ? (
-                        <input
-                          autoFocus
-                          value={editando.valor}
-                          onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
-                          onBlur={guardarEdicion}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") guardarEdicion();
-                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
-                          }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
-                        />
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {t.telefono || <span style={{ color: "#94A3B8" }}>Sin teléfono</span>}
-                          <span
-                            className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
-                            onClick={() => setEditando({ id: t.id, campo: "telefono", valor: t.telefono || "" })}
+                  return (
+                    <tr key={t.id} className="group">
+                      <td>
+                        {enEdicion ? (
+                          <input
+                            autoFocus
+                            value={valores.nombre}
+                            onChange={(e) => actualizarEdicion("nombre", e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") guardarEdicionFila();
+                              if (e.key === "Escape") setEditando({ id: null, valores: null });
+                            }}
+                            style={inputStyle}
+                          />
+                        ) : t.nombre}
+                      </td>
+                      <td className="col-mobile-hide" style={{ color: "#475569" }}>
+                        {enEdicion ? (
+                          <input
+                            value={valores.telefono}
+                            onChange={(e) => actualizarEdicion("telefono", e.target.value)}
+                            style={inputStyle}
+                          />
+                        ) : (t.telefono || <span style={{ color: "#94A3B8" }}>Sin teléfono</span>)}
+                      </td>
+                      <td>
+                        {enEdicion ? (
+                          <select
+                            value={valores.servicio}
+                            onChange={(e) => actualizarEdicion("servicio", e.target.value)}
+                            style={inputStyle}
                           >
-                            <Pencil size={11} />
-                          </span>
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Servicio editable */}
-                    <td>
-                      {editando.id === t.id && editando.campo === "servicio" ? (
-                        <select
-                          autoFocus
-                          defaultValue=""
-                          onBlur={() => setEditando({ id: null, campo: null, valor: "" })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
-                          }}
-                          onChange={async (e) => {
-                            const seleccionado = servicios.find(s => s.nombre === e.target.value);
-                            if (!seleccionado) return;
-                            await supabase.from("turnos").update({
-                              servicio: seleccionado.nombre,
-                              precio: seleccionado.precio,
-                            }).eq("id", t.id);
-                            setEditando({ id: null, campo: null, valor: "" });
-                            traerTurnos();
-                          }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
-                        >
-                          <option value="" disabled>{t.servicio}</option>
-                          {servicios.map((s) => (
-                            <option key={s.id} value={s.nombre}>
-                              {s.nombre} — ${s.precio.toLocaleString("es-AR")}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {t.servicio}
-                          <span
-                            className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
-                            onClick={() => setEditando({ id: t.id, campo: "servicio", valor: t.servicio })}
+                            <option value="">Sin servicio</option>
+                            {servicios.map((s) => (
+                              <option key={s.id} value={s.nombre}>
+                                {s.nombre} - ${s.precio.toLocaleString("es-AR")}
+                              </option>
+                            ))}
+                          </select>
+                        ) : t.servicio}
+                      </td>
+                      <td>
+                        {enEdicion ? (
+                          <select
+                            value={valores.barbero}
+                            onChange={(e) => actualizarEdicion("barbero", e.target.value)}
+                            style={inputStyle}
                           >
-                            <Pencil size={11} />
-                          </span>
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Barbero editable */}
-                    <td>
-                      {editando.id === t.id && editando.campo === "barbero" ? (
-                        <select
-                          autoFocus
-                          defaultValue=""
-                          onBlur={() => setEditando({ id: null, campo: null, valor: "" })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
-                          }}
-                          onChange={async (e) => {
-                            if (!e.target.value) return;
-                            await supabase.from("turnos").update({ barbero: e.target.value }).eq("id", t.id);
-                            setEditando({ id: null, campo: null, valor: "" });
-                            traerTurnos();
-                          }}
-                          style={{ width: "100%", padding: "4px 6px", fontSize: 14 }}
-                        >
-                          <option value="" disabled>{t.barbero || "Sin asignar"}</option>
-                          {barberos.map((b) => (
-                            <option key={b.id} value={b.nombre}>{b.nombre}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <option value="">Sin asignar</option>
+                            {barberos.map((b) => (
+                              <option key={b.id} value={b.nombre}>{b.nombre}</option>
+                            ))}
+                          </select>
+                        ) : (
                           <span style={{ color: t.barbero ? "#475569" : "#94A3B8" }}>
                             {t.barbero || "Sin asignar"}
                           </span>
-                          <span
-                            className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
-                            onClick={() => setEditando({ id: t.id, campo: "barbero", valor: t.barbero })}
-                          >
-                            <Pencil size={11} />
-                          </span>
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ color: "#475569", whiteSpace: "nowrap" }}>{t.fecha}</td>
-                    {/* Hora editable */}
-                    <td style={{ color: "#475569" }}>
-                      {editando.id === t.id && editando.campo === "hora" ? (
-                        <input
-                          autoFocus
-                          type="time"
-                          step="1800"
-                          value={editando.valor}
-                          onChange={(e) => setEditando({ ...editando, valor: e.target.value })}
-                          onBlur={guardarEdicion}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") guardarEdicion();
-                            if (e.key === "Escape") setEditando({ id: null, campo: null, valor: "" });
-                          }}
-                          style={{ width: 110, padding: "4px 6px", fontSize: 14 }}
-                        />
-                      ) : (
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {normHora(t.hora)}
-                          <span
-                            className="opacity-0 group-hover:opacity-100"
-                            style={{ cursor: "pointer", transition: "opacity 0.15s", color: "#94A3B8" }}
-                            onClick={() => setEditando({ id: t.id, campo: "hora", valor: normHora(t.hora) })}
-                          >
-                            <Pencil size={11} />
-                          </span>
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Badge de estado — usa CSS classes del design system */}
-                    <td>
-                      <span
-                        className={`estado ${t.estado || "pendiente"}`}
-                        onClick={() => {
-                          const orden = ["pendiente", "confirmado", "completado"];
-                          const index = orden.indexOf(t.estado || "pendiente");
-                          cambiarEstado(t.id, orden[(index + 1) % orden.length]);
-                        }}
-                      >
-                        {t.estado || "pendiente"}
-                      </span>
-                    </td>
-
-                    {(user.rol === "admin" || user.rol === "superadmin") && (
-                      <td>
-                        <button
-                          onClick={async () => {
-                            await supabase.from("turnos").delete().eq("id", t.id);
-                            traerTurnos();
-                          }}
-                          className="btn-delete"
-                          style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
-                        >
-                          <X size={13} />
-                        </button>
+                        )}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td style={{ color: "#475569", whiteSpace: "nowrap" }}>
+                        {enEdicion ? (
+                          <input
+                            type="date"
+                            value={valores.fecha}
+                            onChange={(e) => actualizarEdicion("fecha", e.target.value)}
+                            style={inputStyle}
+                          />
+                        ) : t.fecha}
+                      </td>
+                      <td style={{ color: "#475569" }}>
+                        {enEdicion ? (
+                          <input
+                            type="time"
+                            step="1800"
+                            value={valores.hora}
+                            onChange={(e) => actualizarEdicion("hora", e.target.value)}
+                            style={{ ...inputStyle, minWidth: 96 }}
+                          />
+                        ) : normHora(t.hora)}
+                      </td>
+                      <td>
+                        {enEdicion ? (
+                          <select
+                            value={valores.estado}
+                            onChange={(e) => actualizarEdicion("estado", e.target.value)}
+                            style={inputStyle}
+                          >
+                            <option value="pendiente">pendiente</option>
+                            <option value="confirmado">confirmado</option>
+                            <option value="completado">completado</option>
+                            <option value="cancelado">cancelado</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`estado ${t.estado || "pendiente"}`}
+                            onClick={() => {
+                              const orden = ["pendiente", "confirmado", "completado"];
+                              const index = orden.indexOf(t.estado || "pendiente");
+                              cambiarEstado(t.id, orden[(index + 1) % orden.length]);
+                            }}
+                          >
+                            {t.estado || "pendiente"}
+                          </span>
+                        )}
+                      </td>
+                      {puedeAdministrarTurnos && (
+                        <td>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                            {enEdicion ? (
+                              <>
+                                <button
+                                  onClick={guardarEdicionFila}
+                                  style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
+                                  aria-label="Guardar turno"
+                                >
+                                  <Check size={13} />
+                                </button>
+                                <button
+                                  onClick={() => setEditando({ id: null, valores: null })}
+                                  className="btn-delete"
+                                  style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
+                                  aria-label="Cancelar edición"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => iniciarEdicionFila(t)}
+                                  style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
+                                  aria-label="Editar turno"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    await supabase.from("turnos").delete().eq("id", t.id);
+                                    traerTurnos();
+                                  }}
+                                  className="btn-delete"
+                                  style={{ padding: "5px 8px", display: "flex", alignItems: "center" }}
+                                  aria-label="Eliminar turno"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -554,3 +562,4 @@ export default function Turnos({ user, onLogout }) {
     </div>
   );
 }
+

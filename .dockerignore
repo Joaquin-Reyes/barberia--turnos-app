@@ -1,0 +1,8 @@
+.git
+.agents
+.claude
+node_modules
+frontend/node_modules
+frontend/dist
+.env
+npm-debug.log

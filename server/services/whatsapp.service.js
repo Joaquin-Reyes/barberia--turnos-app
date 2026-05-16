@@ -5,7 +5,8 @@ const { supabaseAdmin } = require("../config/supabase");
 // Contexto por invocación: { barberia_id, mode }
 // Usado por enviarMensaje para saber qué transporte usar sin cambiar sus call sites.
 const asyncLocalStorage = new AsyncLocalStorage();
-const isWwebjsEnabled = () => process.env.WWEBJS_ENABLED === "true";
+const isWhatsappEnabled = () => process.env.WHATSAPP_ENABLED === "true";
+const isWwebjsEnabled = () => isWhatsappEnabled() && process.env.WWEBJS_ENABLED === "true";
 
 async function _obtenerModo(barberia_id) {
   const { data } = await supabaseAdmin
@@ -24,6 +25,11 @@ async function _resolverChatId(client, numero) {
 }
 
 async function enviarMensaje(numero, mensaje, phone_number_id) {
+  if (!isWhatsappEnabled()) {
+    console.warn("[whatsapp] Deshabilitado, mensaje no enviado");
+    return;
+  }
+
   const ctx = asyncLocalStorage.getStore();
 
   if (ctx?.mode === "wwebjs") {
@@ -74,6 +80,11 @@ async function enviarMensaje(numero, mensaje, phone_number_id) {
 }
 
 async function enviarTemplateConfirmacion({ telefono, nombre, servicio, barbero, fecha, horario, precio, barberia_id }) {
+  if (!isWhatsappEnabled()) {
+    console.warn("[whatsapp] Deshabilitado, confirmacion no enviada");
+    return;
+  }
+
   console.log(`[enviarTemplateConfirmacion] telefono="${telefono}" barberia_id="${barberia_id}"`);
   const mode = barberia_id ? await _obtenerModo(barberia_id) : "cloud_api";
 
@@ -136,6 +147,11 @@ async function enviarTemplateConfirmacion({ telefono, nombre, servicio, barbero,
 }
 
 async function notificarBarbero(datos) {
+  if (!isWhatsappEnabled()) {
+    console.warn("[whatsapp] Deshabilitado, notificacion al barbero no enviada");
+    return;
+  }
+
   console.log(`[notificarBarbero] barbero="${datos.barbero}" telefono="${datos.telefono}" barberia_id="${datos.barberia_id}"`);
 
   let barberia, barberiaError;
